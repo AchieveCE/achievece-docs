@@ -33,9 +33,11 @@
         --scalar-color-background-3: #25252f;
       }
 
+      html,
       body {
         margin: 0;
         padding: 0;
+        height: 100%;
       }
 
       .docs-shell {
@@ -51,6 +53,7 @@
         justify-content: space-between;
         gap: 16px;
         padding: 12px 20px;
+        flex-shrink: 0;
         background: var(--scalar-color-background-2);
         border-bottom: 1px solid var(--scalar-color-background-3);
       }
@@ -80,6 +83,11 @@
         line-height: 1.4;
       }
 
+      #scalar-root {
+        flex: 1;
+        min-height: 0;
+      }
+
       @media (max-width: 720px) {
         .docs-topbar {
           flex-direction: column;
@@ -106,28 +114,28 @@
           <code>public/openapi/achievece.yaml</code>).
         </p>
       </header>
-      <script
-        id="api-reference"
-        data-url="./openapi/achievece.yaml"
-        data-configuration='{
-          "theme": "kepler",
-          "layout": "modern",
-          "darkMode": true,
-          "hiddenClients": ["unirest"],
-          "searchHotKey": "k",
-          "metaData": {
-            "title": "AchieveCE API Documentation",
-            "description": "Faculty and SEO APIs for AchieveCE"
-          },
-          "hideModels": false,
-          "hideDownloadButton": false,
-          "defaultHttpClient": {
-            "targetKey": "javascript",
-            "clientKey": "fetch"
-          }
-        }'
-      ></script>
-      <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+      <div id="scalar-root"></div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script>
+      Scalar.createApiReference("#scalar-root", {
+        url: "/openapi/achievece.yaml",
+        theme: "kepler",
+        layout: "modern",
+        darkMode: true,
+        hiddenClients: ["unirest"],
+        searchHotKey: "k",
+        metaData: {
+          title: "AchieveCE API Documentation",
+          description: "Faculty and SEO APIs for AchieveCE",
+        },
+        hideModels: false,
+        hideDownloadButton: false,
+        defaultHttpClient: {
+          targetKey: "javascript",
+          clientKey: "fetch",
+        },
+      });
+    </script>
   </body>
 </html>

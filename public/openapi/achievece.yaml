@@ -5,6 +5,18 @@ info:
   description: |
     API key authenticated endpoints for faculty data and SEO override management.
 
+    ## Environments
+
+    All paths below are relative to a **base URL** (scheme + host, no trailing slash).
+
+    | Environment | Base URL | When to use |
+    |-------------|----------|-------------|
+    | **Staging** | `https://staging.achievece.com` | Integration testing, QA, and validating changes before production |
+    | **Production** | `https://achievece.com` | Live traffic and production API keys |
+    | **Local** | `http://localhost:3000` | When running the Next.js app locally |
+
+    Use **staging** for API integration work and testing; production keys and data should only be exercised against production when you intend to go live.
+
     ## Authentication
 
     Send your API key in the `Authorization` header:
@@ -45,6 +57,8 @@ info:
 servers:
   - url: https://achievece.com
     description: Production
+  - url: https://staging.achievece.com
+    description: Staging (use for integration testing and QA)
   - url: http://localhost:3000
     description: Local development
 
@@ -655,7 +669,7 @@ components:
     PaginatedFacultyResponse:
       allOf:
         - $ref: "#/components/schemas/PaginatedDataResponse"
-      description: `data` items are faculty objects
+      description: "`data` items are faculty objects"
 
     Faculty:
       type: object
