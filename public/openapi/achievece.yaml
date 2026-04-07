@@ -1,0 +1,752 @@
+openapi: 3.1.0
+info:
+  title: AchieveCE Public API
+  version: 1.0.0
+  description: |
+    API key authenticated endpoints for faculty data and SEO override management.
+
+    ## Authentication
+
+    Send your API key in the `Authorization` header:
+
+    ```
+    Authorization: Bearer <api_key>
+    ```
+
+    Keys are issued via the admin API key management routes (session-authenticated, not documented here).
+
+    ## Scopes
+
+    | Scope | Access |
+    |-------|--------|
+    | `faculty:read` | Faculty list and detail |
+    | `seo:read` | Read SEO inventory, metadata, JSON-LD, previews, override list |
+    | `seo:write` | Create/update/delete pending overrides |
+    | `seo:admin` | Approve, reject, pending queue, deploy |
+
+    ## Success and error shapes
+
+    **Single resource:** `{ "data": ... }`
+
+    **Paginated list:** `{ "data": [...], "meta": { "total", "page", "perPage", "totalPages" }, "links": { "self", "next", "prev", "first", "last" } }`
+
+    **Error:** `{ "error": { "code": string, "message": string, "details"?: unknown[] } }`
+
+    ## Rate limits
+
+    Responses include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` (standard vs premium tiers apply per key).
+  contact:
+    name: AchieveCE
+    url: https://achievece.com
+  license:
+    name: Proprietary
+    url: https://achievece.com
+
+servers:
+  - url: https://achievece.com
+    description: Production
+  - url: http://localhost:3000
+    description: Local development
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Faculty
+    description: Public faculty API (`faculty:read`)
+  - name: SEO — Read
+    description: Read current SEO state and overrides (`seo:read`)
+  - name: SEO — Write
+    description: Create or update pending overrides (`seo:write`)
+  - name: SEO — Admin
+    description: Approve, reject, deploy (`seo:admin`)
+
+paths:
+  /api/v1/faculty:
+    get:
+      operationId: listFaculty
+      summary: List faculty
+      description: |
+        Paginated instructors with optional search, filters, sort, sparse fieldsets, and includes.
+        Sort: prefix field with `-` for descending (e.g. `-created_at`). Allowed fields: `name`, `created_at`, `updated_at`.
+        Include: comma-separated `courses`, `specialties`, `profession`.
+      tags: [Faculty]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: sort
+          in: query
+          description: e.g. `name`, `-created_at`
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, pending]
+        - name: profession
+          in: query
+          schema:
+            type: string
+        - name: specialty
+          in: query
+          schema:
+            type: string
+        - name: include
+          in: query
+          description: Comma-separated includes
+          schema:
+            type: string
+            example: courses,specialties
+        - name: fields
+          in: query
+          description: Comma-separated sparse fields
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated faculty
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: string
+            X-RateLimit-Remaining:
+              schema:
+                type: string
+            X-RateLimit-Reset:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedFacultyResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/faculty/{slug}:
+    get:
+      operationId: getFacultyBySlug
+      summary: Get faculty by slug
+      tags: [Faculty]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: include
+          in: query
+          schema:
+            type: string
+        - name: fields
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Faculty record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleFacultyResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/seo/inventory:
+    get:
+      operationId: seoInventory
+      summary: SEO page inventory
+      tags: [SEO — Read]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Inventory payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/metadata:
+    get:
+      operationId: getSeoMetadata
+      summary: Metadata for URL
+      tags: [SEO — Read]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+      responses:
+        "200":
+          description: Current metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: putSeoMetadata
+      summary: Create metadata override
+      tags: [SEO — Write]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMetadataBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/json-ld:
+    get:
+      operationId: getSeoJsonLd
+      summary: JSON-LD for URL
+      tags: [SEO — Read]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+      responses:
+        "200":
+          description: JSON-LD data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: postSeoJsonLd
+      summary: Create JSON-LD override
+      tags: [SEO — Write]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJsonLdBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/json-ld/{id}:
+    put:
+      operationId: putSeoJsonLdById
+      summary: Update pending JSON-LD override
+      tags: [SEO — Write]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateJsonLdBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      operationId: deleteSeoJsonLdById
+      summary: Delete pending JSON-LD override
+      tags: [SEO — Write]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/json-ld/site-wide:
+    post:
+      operationId: postSeoJsonLdSiteWide
+      summary: Create site-wide JSON-LD override
+      tags: [SEO — Write]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSiteWideBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/preview:
+    get:
+      operationId: seoPreview
+      summary: Preview merged SEO (optional pending)
+      tags: [SEO — Read]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+        - name: includePending
+          in: query
+          description: Set to `false` to exclude pending overrides (default true)
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Preview payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/overrides:
+    get:
+      operationId: listSeoOverrides
+      summary: List overrides
+      tags: [SEO — Read]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: url
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [json_ld, metadata]
+      responses:
+        "200":
+          description: Paginated overrides
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/pending:
+    get:
+      operationId: listSeoPending
+      summary: List all pending changes (admin)
+      tags: [SEO — Admin]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Pending items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/approve/{id}:
+    post:
+      operationId: approveSeoOverride
+      summary: Approve override
+      tags: [SEO — Admin]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/approve/batch:
+    post:
+      operationId: approveSeoBatch
+      summary: Approve multiple overrides
+      tags: [SEO — Admin]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/reject/{id}:
+    post:
+      operationId: rejectSeoOverride
+      summary: Reject override
+      tags: [SEO — Admin]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/seo/deploy:
+    post:
+      operationId: deploySeo
+      summary: Trigger site deploy (Vercel hook)
+      description: Requires `VERCEL_DEPLOY_HOOK_URL` on the server. Returns 503 if not configured.
+      tags: [SEO — Admin]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Deploy triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          description: Deploy hook failed
+        "503":
+          description: Deploy hook not configured
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API key
+      description: API key with required OAuth-style scopes on the key record.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PerPage:
+      name: perPage
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: array
+              items: {}
+
+    SingleDataResponse:
+      type: object
+      required: [data]
+      properties:
+        data: {}
+
+    SingleFacultyResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Faculty"
+
+    PaginatedDataResponse:
+      type: object
+      required: [data, meta, links]
+      properties:
+        data:
+          type: array
+          items: {}
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            perPage:
+              type: integer
+            totalPages:
+              type: integer
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+            next:
+              type: string
+              nullable: true
+            prev:
+              type: string
+              nullable: true
+            first:
+              type: string
+            last:
+              type: string
+
+    PaginatedFacultyResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedDataResponse"
+      description: `data` items are faculty objects
+
+    Faculty:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        titles:
+          type: string
+          nullable: true
+        description:
+          type: string
+        role:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    CreateJsonLdBody:
+      type: object
+      required: [url, schemaType, payload]
+      properties:
+        url:
+          type: string
+          minLength: 1
+        schemaType:
+          type: string
+          minLength: 1
+        payload:
+          type: object
+          additionalProperties: true
+
+    UpdateJsonLdBody:
+      type: object
+      properties:
+        schemaType:
+          type: string
+          minLength: 1
+        payload:
+          type: object
+          additionalProperties: true
+
+    CreateMetadataBody:
+      type: object
+      required: [url, payload]
+      properties:
+        url:
+          type: string
+          minLength: 1
+        payload:
+          type: object
+          additionalProperties: true
+
+    CreateSiteWideBody:
+      type: object
+      required: [schemaType, payload]
+      properties:
+        schemaType:
+          type: string
+          minLength: 1
+        payload:
+          type: object
+          additionalProperties: true
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key / insufficient scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ValidationError:
+      description: Invalid query or body
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"

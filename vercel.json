@@ -1,0 +1,31 @@
+{
+  "buildCommand": "bun run build",
+  "outputDirectory": "dist",
+  "installCommand": "bun install",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/openapi/(.*)",
+      "destination": "/openapi/$1"
+    },
+    {
+      "source": "/callback",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/openapi/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/yaml"
+        }
+      ]
+    }
+  ]
+}
