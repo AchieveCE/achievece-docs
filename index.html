@@ -40,12 +40,55 @@
         height: 100%;
       }
 
-      .docs-shell {
-        min-height: 100vh;
+      body { font-family: var(--scalar-font); }
+
+      #auth-gate {
         display: flex;
-        flex-direction: column;
-        font-family: var(--scalar-font);
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #0d9488 0%, #0f172a 100%);
       }
+
+      #auth-card {
+        background: white;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 420px;
+        width: 90%;
+        text-align: center;
+      }
+
+      #auth-card h2 { margin: 0 0 10px 0; color: #03071c; font-size: 22px; font-weight: 600; }
+      #auth-card p { margin: 0 0 24px 0; color: #494a57; font-size: 14px; }
+
+      #sign-in-btn {
+        width: 100%;
+        padding: 12px 16px;
+        background: #0d9488;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #sign-in-btn:hover { background: #0f766e; }
+
+      .spinner {
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top: 3px solid white;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 12px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      #docs-shell { display: none; min-height: 100vh; flex-direction: column; }
+      #docs-shell.authenticated { display: flex; }
 
       .docs-topbar {
         display: flex;
@@ -53,89 +96,186 @@
         justify-content: space-between;
         gap: 16px;
         padding: 12px 20px;
-        flex-shrink: 0;
         background: var(--scalar-color-background-2);
         border-bottom: 1px solid var(--scalar-color-background-3);
+        flex-shrink: 0;
       }
 
-      .docs-brand {
-        display: flex;
-        align-items: baseline;
-        gap: 10px;
-      }
+      .docs-brand { display: flex; align-items: baseline; gap: 10px; }
+      .docs-brand strong { color: var(--scalar-color-1); font-size: 16px; font-weight: 600; }
+      .docs-brand span { color: var(--scalar-color-2); font-size: 13px; }
 
-      .docs-brand strong {
-        color: var(--scalar-color-1);
-        font-size: 16px;
+      .docs-user { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--scalar-color-2); }
+      .docs-user .role-pill {
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: #0d9488;
+        color: white;
+        font-size: 11px;
         font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
       }
+      .docs-user .role-pill.consumer { background: #475569; }
 
-      .docs-brand span {
+      #sign-out-btn {
+        padding: 6px 12px;
+        background: transparent;
         color: var(--scalar-color-2);
-        font-size: 13px;
-      }
-
-      .docs-note {
-        color: var(--scalar-color-2);
+        border: 1px solid var(--scalar-color-background-3);
+        border-radius: 6px;
         font-size: 12px;
-        max-width: 480px;
-        text-align: right;
-        line-height: 1.4;
+        cursor: pointer;
       }
+      #sign-out-btn:hover { color: #ef4444; border-color: #ef4444; }
 
-      #scalar-root {
-        flex: 1;
-        min-height: 0;
-      }
-
-      @media (max-width: 720px) {
-        .docs-topbar {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-        .docs-note {
-          text-align: left;
-          max-width: none;
-        }
-      }
+      #scalar-root { flex: 1; min-height: 0; }
     </style>
   </head>
   <body>
-    <div class="docs-shell">
+    <div id="auth-gate">
+      <div id="auth-card">
+        <div class="spinner" style="border-color: rgba(13,148,136,0.2); border-top-color: #0d9488;"></div>
+        <p style="color: #0d9488; margin: 0;">Loading…</p>
+      </div>
+    </div>
+
+    <div id="docs-shell">
       <header class="docs-topbar">
         <div class="docs-brand">
           <strong>AchieveCE</strong>
           <span>Public API reference</span>
         </div>
-        <p class="docs-note">
-          Endpoints require a Bearer API key. Canonical OpenAPI lives in the
-          <strong>achievece-web</strong> repo:
-          <code>docs/openapi/achievece-public-api.yaml</code> (synced here as
-          <code>public/openapi/achievece.yaml</code>).
-        </p>
+        <div class="docs-user">
+          <span id="user-email"></span>
+          <span id="user-role" class="role-pill"></span>
+          <button id="sign-out-btn">Sign out</button>
+        </div>
       </header>
       <div id="scalar-root"></div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
-    <script>
-      Scalar.createApiReference("#scalar-root", {
-        url: "/openapi/achievece.yaml",
-        theme: "kepler",
-        layout: "modern",
-        darkMode: true,
-        hiddenClients: ["unirest"],
-        searchHotKey: "k",
-        metaData: {
-          title: "AchieveCE API Documentation",
-          description: "Faculty and SEO APIs for AchieveCE",
-        },
-        hideModels: false,
-        hideDownloadButton: false,
-        defaultHttpClient: {
-          targetKey: "javascript",
-          clientKey: "fetch",
-        },
-      });
+
+    <script type="module">
+      import { Amplify } from "https://cdn.jsdelivr.net/npm/aws-amplify@6.0.0/+esm";
+      import {
+        signInWithRedirect,
+        signOut,
+        fetchAuthSession,
+        getCurrentUser,
+      } from "https://cdn.jsdelivr.net/npm/aws-amplify@6.0.0/auth/+esm";
+      import jsyaml from "https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/+esm";
+      import { cognitoConfig } from "/auth-config.js";
+
+      Amplify.configure(cognitoConfig);
+
+      // Tags considered admin-only — hidden from non-admin (consumer) users.
+      const ADMIN_TAG_PREFIXES = ["SEO — Admin"];
+
+      function showSignIn() {
+        const card = document.getElementById("auth-card");
+        card.innerHTML = `
+          <h2>Protected documentation</h2>
+          <p>Sign in with your AchieveCE account to view the API reference.</p>
+          <button id="sign-in-btn">Sign in</button>
+        `;
+        document.getElementById("sign-in-btn").addEventListener("click", () => {
+          signInWithRedirect({ provider: "Cognito" }).catch(() =>
+            alert("Sign in failed. Please try again.")
+          );
+        });
+      }
+
+      function isAdminPath(pathItem) {
+        for (const method of Object.keys(pathItem)) {
+          const op = pathItem[method];
+          if (op && Array.isArray(op.tags)) {
+            if (op.tags.some((t) => ADMIN_TAG_PREFIXES.some((p) => t.startsWith(p)))) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      async function loadFilteredSpec(isAdmin) {
+        const res = await fetch("/openapi/achievece.yaml");
+        const text = await res.text();
+        const spec = jsyaml.load(text);
+        if (!isAdmin && spec.paths) {
+          for (const path of Object.keys(spec.paths)) {
+            if (isAdminPath(spec.paths[path])) delete spec.paths[path];
+          }
+          if (Array.isArray(spec.tags)) {
+            spec.tags = spec.tags.filter(
+              (t) => !ADMIN_TAG_PREFIXES.some((p) => (t.name || "").startsWith(p))
+            );
+          }
+        }
+        return spec;
+      }
+
+      function renderScalar(spec) {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/@scalar/api-reference";
+        script.onload = () => {
+          Scalar.createApiReference("#scalar-root", {
+            content: spec,
+            theme: "kepler",
+            layout: "modern",
+            darkMode: true,
+            hiddenClients: ["unirest"],
+            searchHotKey: "k",
+            metaData: {
+              title: "AchieveCE API Documentation",
+              description: "Faculty and SEO APIs for AchieveCE",
+            },
+            hideModels: false,
+            hideDownloadButton: false,
+            defaultHttpClient: { targetKey: "javascript", clientKey: "fetch" },
+          });
+        };
+        document.body.appendChild(script);
+      }
+
+      async function showDocs(user, groups) {
+        const isAdmin = groups.includes("admin");
+        document.getElementById("auth-gate").style.display = "none";
+        document.getElementById("docs-shell").classList.add("authenticated");
+        document.getElementById("user-email").textContent =
+          user.signInDetails?.loginId || user.username;
+        const rolePill = document.getElementById("user-role");
+        rolePill.textContent = isAdmin ? "Admin" : "Consumer";
+        if (!isAdmin) rolePill.classList.add("consumer");
+        document.getElementById("sign-out-btn").addEventListener("click", async () => {
+          try { await signOut(); } finally { window.location.reload(); }
+        });
+        const spec = await loadFilteredSpec(isAdmin);
+        renderScalar(spec);
+      }
+
+      async function checkAuth() {
+        try {
+          const session = await fetchAuthSession();
+          if (!session.tokens?.idToken) return showSignIn();
+          const user = await getCurrentUser();
+          const payload = session.tokens.idToken.payload || {};
+          const groups = payload["cognito:groups"] || [];
+          await showDocs(user, groups);
+        } catch {
+          showSignIn();
+        }
+      }
+
+      async function init() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("code") || window.location.pathname === "/callback") {
+          await new Promise((r) => setTimeout(r, 800));
+          window.history.replaceState({}, document.title, "/");
+        }
+        await checkAuth();
+      }
+
+      init();
     </script>
   </body>
 </html>
