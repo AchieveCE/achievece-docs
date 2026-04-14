@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AchieveCE Public API
-  version: 1.0.0
+  version: 1.1.0
   description: |
-    API key authenticated endpoints for faculty data and SEO override management.
+    API key authenticated endpoints for courses, packages, faculty, continuing education requirements, and SEO override management.
 
     ## Environments
 
@@ -31,7 +31,10 @@ info:
 
     | Scope | Access |
     |-------|--------|
+    | `courses:read` | Course list and detail |
+    | `packages:read` | Package list |
     | `faculty:read` | Faculty list and detail |
+    | `findce:read` | State CE requirements |
     | `seo:read` | Read SEO inventory, metadata, JSON-LD, previews, override list |
     | `seo:write` | Create/update/delete pending overrides |
     | `seo:admin` | Approve, reject, pending queue, deploy |
@@ -66,8 +69,14 @@ security:
   - ApiKeyAuth: []
 
 tags:
+  - name: Courses
+    description: Public course catalog API (`courses:read`)
+  - name: Packages
+    description: Public package listings API (`packages:read`)
   - name: Faculty
     description: Public faculty API (`faculty:read`)
+  - name: FindCE
+    description: State continuing education requirements (`findce:read`)
   - name: SEO — Read
     description: Read current SEO state and overrides (`seo:read`)
   - name: SEO — Write
@@ -76,6 +85,192 @@ tags:
     description: Approve, reject, deploy (`seo:admin`)
 
 paths:
+  # ── Courses ──────────────────────────────────────────────
+  /api/v1/courses:
+    get:
+      operationId: listCourses
+      summary: List courses
+      description: |
+        Paginated course catalog with optional search, filters, sort, sparse fieldsets, and includes.
+
+        Sort: prefix field with `-` for descending (e.g. `-price`). Allowed fields: `name`, `price`, `duration`, `created_at`, `updated_at`, `release_date`.
+
+        Include: comma-separated `mainInstructor`, `instructors`, `subjectAreas`, `accreditations`, `targetAudiences`, `packages`.
+      tags: [Courses]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: sort
+          in: query
+          description: "e.g. `name`, `-price`, `-release_date`"
+          schema:
+            type: string
+        - name: activityType
+          in: query
+          schema:
+            type: string
+        - name: deliveryType
+          in: query
+          schema:
+            type: string
+        - name: isPopular
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: isTrending
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: include
+          in: query
+          description: Comma-separated includes
+          schema:
+            type: string
+            example: mainInstructor,subjectAreas
+        - name: fields
+          in: query
+          description: Comma-separated sparse fields
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated courses
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: string
+            X-RateLimit-Remaining:
+              schema:
+                type: string
+            X-RateLimit-Reset:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCourseResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/courses/{slug}:
+    get:
+      operationId: getCourseBySlug
+      summary: Get course by slug
+      tags: [Courses]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: include
+          in: query
+          description: Comma-separated includes
+          schema:
+            type: string
+        - name: fields
+          in: query
+          description: Comma-separated sparse fields
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Course record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleCourseResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Packages ─────────────────────────────────────────────
+  /api/v1/packages:
+    get:
+      operationId: listPackages
+      summary: List packages
+      description: |
+        Paginated package listings with optional search, filters, sort, sparse fieldsets, and includes.
+
+        Sort: prefix field with `-` for descending (e.g. `-price`). Allowed fields: `name`, `price`, `duration`, `created_at`, `updated_at`.
+
+        Include: comma-separated `courses`, `stateProfessions`.
+      tags: [Packages]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: sort
+          in: query
+          description: "e.g. `name`, `-price`"
+          schema:
+            type: string
+        - name: isPopular
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: isTrending
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: include
+          in: query
+          description: Comma-separated includes
+          schema:
+            type: string
+            example: courses,stateProfessions
+        - name: fields
+          in: query
+          description: Comma-separated sparse fields
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated packages
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: string
+            X-RateLimit-Remaining:
+              schema:
+                type: string
+            X-RateLimit-Reset:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedPackageResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Faculty ──────────────────────────────────────────────
   /api/v1/faculty:
     get:
       operationId: listFaculty
@@ -181,6 +376,67 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ── FindCE ───────────────────────────────────────────────
+  /api/v1/findce/{state}/{profession}:
+    get:
+      operationId: getFindCeRequirements
+      summary: Get state CE requirements
+      description: |
+        Returns continuing education requirements for a specific state and profession combination.
+
+        Include: comma-separated `renewalRequirements`, `packages`, `courses`, `accreditation`, `accreditationsList`.
+      tags: [FindCE]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: state
+          in: path
+          required: true
+          description: State slug (e.g. `florida`, `texas`)
+          schema:
+            type: string
+        - name: profession
+          in: path
+          required: true
+          description: Profession slug (e.g. `pharmacy`, `nursing`)
+          schema:
+            type: string
+        - name: include
+          in: query
+          description: Comma-separated includes
+          schema:
+            type: string
+            example: renewalRequirements,packages,courses
+        - name: fields
+          in: query
+          description: Comma-separated sparse fields (applied to the stateProfession object)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: State CE requirement data
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: string
+            X-RateLimit-Remaining:
+              schema:
+                type: string
+            X-RateLimit-Reset:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleFindCeResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── SEO ──────────────────────────────────────────────────
   /api/seo/inventory:
     get:
       operationId: seoInventory
@@ -226,6 +482,12 @@ paths:
     put:
       operationId: putSeoMetadata
       summary: Create metadata override
+      description: |
+        Create a pending metadata override for a URL.
+
+        `payload.title` supports two modes:
+        - string: uses the app's shared title template for that URL
+        - `{ absolute: "Final Title" }`: sets a final URL-specific title and bypasses the shared template
       tags: [SEO — Write]
       security:
         - ApiKeyAuth: []
@@ -625,13 +887,6 @@ components:
       properties:
         data: {}
 
-    SingleFacultyResponse:
-      type: object
-      required: [data]
-      properties:
-        data:
-          $ref: "#/components/schemas/Faculty"
-
     PaginatedDataResponse:
       type: object
       required: [data, meta, links]
@@ -666,11 +921,228 @@ components:
             last:
               type: string
 
-    PaginatedFacultyResponse:
+    # ── Course schemas ───────────────────────────────────────
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        duration:
+          type: number
+        price:
+          type: number
+        discount:
+          type: number
+          nullable: true
+        listPrice:
+          type: number
+          nullable: true
+        isPopular:
+          type: boolean
+          nullable: true
+        isTrending:
+          type: boolean
+          nullable: true
+        activityType:
+          type: string
+          nullable: true
+        deliveryType:
+          type: string
+          nullable: true
+        thumbUrl:
+          type: string
+          nullable: true
+        thumbAltText:
+          type: string
+          nullable: true
+        splashUrl:
+          type: string
+          nullable: true
+        splashAltText:
+          type: string
+          nullable: true
+        previewUrl:
+          type: string
+          nullable: true
+        ceBrokerId:
+          type: string
+          nullable: true
+        uanPharmacists:
+          type: string
+          nullable: true
+        uanPharmacyTechnician:
+          type: string
+          nullable: true
+        accme:
+          type: string
+          nullable: true
+        approvalNumber:
+          type: string
+          nullable: true
+        stateApprovalNumber:
+          type: string
+          nullable: true
+        agd:
+          type: string
+          nullable: true
+        instantReportCeBroker:
+          type: boolean
+        reportCpeMonitor:
+          type: boolean
+        reportAgd:
+          type: boolean
+        about:
+          description: Rich text / structured content
+        learningObjectives:
+          description: Rich text / structured content
+        coursePreview:
+          nullable: true
+          description: Rich text / structured content
+        disclosure:
+          nullable: true
+          description: Rich text / structured content
+        faqs:
+          nullable: true
+          description: Structured FAQ content
+        releaseDate:
+          type: string
+          format: date-time
+          nullable: true
+        expirationDate:
+          type: string
+          format: date-time
+          nullable: true
+        reviewDate:
+          type: string
+          format: date-time
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        activityFormat:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        mainInstructor:
+          description: Included when `?include=mainInstructor`
+          nullable: true
+          $ref: "#/components/schemas/NameSlugRef"
+        instructors:
+          description: Included when `?include=instructors`
+          type: array
+          items:
+            $ref: "#/components/schemas/NameSlugRef"
+        subjectAreas:
+          description: Included when `?include=subjectAreas`
+          type: array
+          items:
+            $ref: "#/components/schemas/NameSlugRef"
+        accreditations:
+          description: Included when `?include=accreditations`
+          type: array
+          items:
+            $ref: "#/components/schemas/AccreditationRef"
+        targetAudiences:
+          description: Included when `?include=targetAudiences`
+          type: array
+          items:
+            $ref: "#/components/schemas/NameSlugRef"
+        packages:
+          description: Included when `?include=packages`
+          type: array
+          items:
+            $ref: "#/components/schemas/NameSlugRef"
+
+    SingleCourseResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Course"
+
+    PaginatedCourseResponse:
       allOf:
         - $ref: "#/components/schemas/PaginatedDataResponse"
-      description: "`data` items are faculty objects"
+      description: "`data` items are Course objects"
 
+    # ── Package schemas ──────────────────────────────────────
+    Package:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          description: Rich text / structured content
+        simpleDescription:
+          type: string
+        duration:
+          type: number
+        price:
+          type: number
+        discount:
+          type: number
+          nullable: true
+        listPrice:
+          type: number
+          nullable: true
+        thumbUrl:
+          type: string
+          nullable: true
+        thumbAltText:
+          type: string
+          nullable: true
+        splashUrl:
+          type: string
+          nullable: true
+        splashAltText:
+          type: string
+          nullable: true
+        isPopular:
+          type: boolean
+          nullable: true
+        isTrending:
+          type: boolean
+          nullable: true
+        renewPeriod:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        courses:
+          description: Included when `?include=courses`
+          type: array
+          items:
+            $ref: "#/components/schemas/NameSlugRef"
+        stateProfessions:
+          description: Included when `?include=stateProfessions`
+          type: array
+          items:
+            $ref: "#/components/schemas/NameSlugRef"
+
+    PaginatedPackageResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedDataResponse"
+      description: "`data` items are Package objects"
+
+    # ── Faculty schemas ──────────────────────────────────────
     Faculty:
       type: object
       properties:
@@ -699,6 +1171,278 @@ components:
         updatedAt:
           type: string
 
+    SingleFacultyResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Faculty"
+
+    PaginatedFacultyResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedDataResponse"
+      description: "`data` items are Faculty objects"
+
+    # ── FindCE schemas ───────────────────────────────────────
+    FindCeResponse:
+      type: object
+      required: [stateProfession, state, profession]
+      properties:
+        stateProfession:
+          $ref: "#/components/schemas/StateProfession"
+        state:
+          $ref: "#/components/schemas/StateRef"
+        profession:
+          $ref: "#/components/schemas/ProfessionRef"
+        accreditation:
+          description: Included when `?include=accreditation`
+          nullable: true
+          type: object
+          properties:
+            id:
+              type: string
+            slug:
+              type: string
+            name:
+              type: string
+            abbreviation:
+              type: string
+            logoUrl:
+              type: string
+              nullable: true
+            subtitle:
+              type: string
+            type:
+              type: string
+              nullable: true
+        accreditationsList:
+          description: Included when `?include=accreditationsList`
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              slug:
+                type: string
+              name:
+                type: string
+              abbreviation:
+                type: string
+              logoUrl:
+                type: string
+                nullable: true
+        renewalRequirements:
+          description: Included when `?include=renewalRequirements`
+          type: array
+          items:
+            $ref: "#/components/schemas/RenewalRequirement"
+        packages:
+          description: Included when `?include=packages`
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              slug:
+                type: string
+              name:
+                type: string
+              price:
+                type: number
+              discount:
+                type: number
+                nullable: true
+              duration:
+                type: number
+        courses:
+          description: Included when `?include=courses`
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              slug:
+                type: string
+              name:
+                type: string
+              required:
+                type: boolean
+
+    SingleFindCeResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/FindCeResponse"
+
+    StateProfession:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          nullable: true
+          description: Rich text / structured content
+        splashUrl:
+          type: string
+          nullable: true
+        licenseFormat:
+          type: string
+          nullable: true
+        ceBrokerCode:
+          type: string
+          nullable: true
+        accreditationStatement:
+          type: string
+          nullable: true
+        benefits:
+          type: array
+          items:
+            type: string
+        subtitle:
+          type: string
+          nullable: true
+        ceTypeLabel:
+          type: string
+          nullable: true
+        creditLabelTemplate:
+          type: string
+          nullable: true
+        hideSavingsBadge:
+          type: boolean
+          nullable: true
+        packageCeText:
+          type: string
+          nullable: true
+        planFeaturesOverride:
+          nullable: true
+          description: Structured override content
+        displayDetails:
+          type: string
+          nullable: true
+        popularPlan:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    StateRef:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+
+    ProfessionRef:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+          nullable: true
+
+    RenewalRequirement:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          nullable: true
+        renewalCycleDescription:
+          type: string
+        liveHours:
+          type: number
+        generalHours:
+          type: number
+        totalHours:
+          type: number
+          nullable: true
+        requiredCoursesList:
+          nullable: true
+        renewalCycle:
+          type: string
+          nullable: true
+        renewsByBirthMonth:
+          type: boolean
+          nullable: true
+        renewsByInitialDate:
+          type: boolean
+          nullable: true
+        renewsByGroup:
+          type: boolean
+          nullable: true
+        renewsByBirthdate:
+          type: boolean
+          nullable: true
+        liveHoursOnlineFulfilment:
+          type: boolean
+          nullable: true
+        liveHoursNoOnlineFulfilment:
+          type: boolean
+          nullable: true
+        nextRenewalDate:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ── Shared reference schemas ─────────────────────────────
+    NameSlugRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+
+    AccreditationRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        badgeUrl:
+          type: string
+          nullable: true
+
+    # ── SEO schemas ──────────────────────────────────────────
     CreateJsonLdBody:
       type: object
       required: [url, schemaType, payload]
@@ -731,6 +1475,38 @@ components:
           type: string
           minLength: 1
         payload:
+          $ref: "#/components/schemas/CreateMetadataPayload"
+
+    MetadataTitleOverride:
+      oneOf:
+        - type: string
+          description: Templated page title value
+        - type: object
+          required: [absolute]
+          additionalProperties: false
+          properties:
+            absolute:
+              type: string
+              description: Final URL-specific title that bypasses the shared title template
+
+    CreateMetadataPayload:
+      type: object
+      additionalProperties: true
+      properties:
+        title:
+          $ref: "#/components/schemas/MetadataTitleOverride"
+        description:
+          type: string
+          description: Meta description, maximum 160 characters
+        keywords:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+        openGraph:
+          type: object
+          additionalProperties: true
+        twitter:
           type: object
           additionalProperties: true
 
