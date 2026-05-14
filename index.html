@@ -130,6 +130,19 @@
       #sign-out-btn:hover { color: #ef4444; border-color: #ef4444; }
 
       #scalar-root { flex: 1; min-height: 0; }
+
+      .new-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-left: 6px;
+        border-radius: 50%;
+        background: #ef4444;
+        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+        flex-shrink: 0;
+        vertical-align: middle;
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -214,6 +227,96 @@
         return spec;
       }
 
+      // ─ "New" badge: red dot on sidebar items whose operation has `x-new: true`
+      // in the spec. Click marks viewed and persists in localStorage so the dot
+      // disappears for that operationId on subsequent visits. The storage key is
+      // versioned so a future release can rotate it and re-flag fresh items.
+      const NEW_BADGE_STORAGE_KEY = "achievece-docs-viewed-new-v4.13.0";
+
+      function readViewed() {
+        try {
+          const raw = localStorage.getItem(NEW_BADGE_STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch {
+          return new Set();
+        }
+      }
+
+      function markViewed(opId) {
+        try {
+          const viewed = readViewed();
+          viewed.add(opId);
+          localStorage.setItem(
+            NEW_BADGE_STORAGE_KEY,
+            JSON.stringify([...viewed])
+          );
+        } catch {
+          /* localStorage disabled — dot just won't persist this session */
+        }
+      }
+
+      function collectNewOps(spec) {
+        // Map summary text → operationId for every operation marked x-new.
+        // Scalar renders the operation summary as the sidebar item label, so
+        // matching by visible text is the most version-tolerant signal.
+        const bySummary = new Map();
+        if (!spec || !spec.paths) return bySummary;
+        for (const path of Object.keys(spec.paths)) {
+          const pathItem = spec.paths[path] || {};
+          for (const method of Object.keys(pathItem)) {
+            const op = pathItem[method];
+            if (op && op["x-new"] === true && op.summary) {
+              bySummary.set(op.summary.trim(), op.operationId || op.summary);
+            }
+          }
+        }
+        return bySummary;
+      }
+
+      function attachNewBadges(spec) {
+        const bySummary = collectNewOps(spec);
+        if (bySummary.size === 0) return;
+
+        const root = document.getElementById("scalar-root");
+        if (!root) return;
+
+        const decorate = () => {
+          const viewed = readViewed();
+          // Scalar's sidebar lives inside #scalar-root. Walk every anchor and
+          // match its trimmed text against operation summaries.
+          const links = root.querySelectorAll("a");
+          links.forEach((link) => {
+            if (link.dataset.newBadgeChecked === "1") return;
+            const label = (link.textContent || "").trim();
+            const opId = bySummary.get(label);
+            if (!opId) return;
+            link.dataset.newBadgeChecked = "1";
+            if (viewed.has(opId)) return;
+            // Skip if a dot was already injected (Scalar may re-render).
+            if (link.querySelector(".new-dot")) return;
+            const dot = document.createElement("span");
+            dot.className = "new-dot";
+            dot.setAttribute("aria-label", "New");
+            link.appendChild(dot);
+            link.addEventListener(
+              "click",
+              () => {
+                markViewed(opId);
+                dot.remove();
+              },
+              { once: true }
+            );
+          });
+        };
+
+        // Run once for the initial render, then keep watching: Scalar mounts
+        // the sidebar asynchronously after the CDN script loads and re-renders
+        // on tag expand/collapse.
+        decorate();
+        const observer = new MutationObserver(decorate);
+        observer.observe(root, { childList: true, subtree: true });
+      }
+
       function renderScalar(spec) {
         const script = document.createElement("script");
         script.src = "https://cdn.jsdelivr.net/npm/@scalar/api-reference";
@@ -233,6 +336,7 @@
             hideDownloadButton: false,
             defaultHttpClient: { targetKey: "javascript", clientKey: "fetch" },
           });
+          attachNewBadges(spec);
         };
         document.body.appendChild(script);
       }

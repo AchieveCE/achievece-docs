@@ -1,9 +1,14 @@
 openapi: 3.1.0
 info:
   title: AchieveCE Public API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     API key authenticated endpoints for courses, packages, faculty, continuing education requirements, and SEO override management.
+
+    ## What's new in v4.13.0
+
+    - `GET /api/v1/findce/by-slug/{slug}` — resolve a state CE record by its canonical `state_professions.slug` without depending on the `{state}/{profession}` pair.
+    - Site-wide `@graph` overrides — `Organization`, `WebSite`, and `EducationalOrganization` JSON-LD schemas now merge into the page's `@graph` instead of being ignored. Sent via the existing JSON-LD override routes. A non-empty string `@id` is required on these three types so cross-references stay valid.
 
     ## Environments
 
@@ -377,6 +382,62 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ── FindCE ───────────────────────────────────────────────
+  /api/v1/findce/by-slug/{slug}:
+    get:
+      operationId: getFindCeBySlug
+      summary: Get state CE requirements by slug
+      x-new: true
+      description: |
+        Resolve a state CE record by its canonical `state_professions.slug`. Useful when the `{state}/{profession}` pair is unstable (state or profession slugs can be renamed) and you have stored the canonical slug.
+
+        Returns the same payload shape as `GET /api/v1/findce/{state}/{profession}`, including the same `include` and `fields` semantics.
+
+        Returns 404 when the record is missing, unpublished, or soft-deleted.
+      tags: [FindCE]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Canonical state_professions slug
+          schema:
+            type: string
+        - name: include
+          in: query
+          description: Comma-separated includes
+          schema:
+            type: string
+            example: renewalRequirements,packages,courses
+        - name: fields
+          in: query
+          description: Comma-separated sparse fields (applied to the stateProfession object)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: State CE requirement data
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: string
+            X-RateLimit-Remaining:
+              schema:
+                type: string
+            X-RateLimit-Reset:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleFindCeResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/findce/{state}/{profession}:
     get:
       operationId: getFindCeRequirements
@@ -537,6 +598,20 @@ paths:
     post:
       operationId: postSeoJsonLd
       summary: Create JSON-LD override
+      x-new: true
+      description: |
+        Create a pending JSON-LD override for a URL.
+
+        ### Site-wide `@graph` schemas
+
+        The three core schema types `Organization`, `WebSite`, and `EducationalOrganization` render on every page as a single merged `@graph` script. Approved overrides for these types are shallow-merged on top of the defaults in this order, most specific last:
+
+        1. Built-in defaults
+        2. Site-wide override (`url: "*"`, sent via `/api/seo/json-ld/site-wide`)
+        3. Wildcard path override (e.g. `url: "/courses/*"`)
+        4. Exact path override (e.g. `url: "/about"`)
+
+        When `schemaType` is one of those three, the request body **must** include a non-empty string `@id` inside `payload`. This is required so cross-references in the merged `@graph` (such as `WebSite.publisher` pointing at `Organization`) keep resolving after your override is applied. Validation returns 400 if `@id` is missing.
       tags: [SEO — Write]
       security:
         - ApiKeyAuth: []
@@ -562,6 +637,11 @@ paths:
     put:
       operationId: putSeoJsonLdById
       summary: Update pending JSON-LD override
+      x-new: true
+      description: |
+        Update a pending JSON-LD override.
+
+        When the override's `schemaType` is `Organization`, `WebSite`, or `EducationalOrganization`, the same `@id` validation as `POST /api/seo/json-ld` applies: `payload["@id"]` must be a non-empty string so the merged site-wide `@graph` cross-references stay valid.
       tags: [SEO — Write]
       security:
         - ApiKeyAuth: []
@@ -614,6 +694,19 @@ paths:
     post:
       operationId: postSeoJsonLdSiteWide
       summary: Create site-wide JSON-LD override
+      x-new: true
+      description: |
+        Create a pending site-wide JSON-LD override. Stored with `url_pattern: "*"`; once approved, the payload applies on every page.
+
+        ### `@graph` schemas now merge instead of duplicate
+
+        For the three core schema types — `Organization`, `WebSite`, and `EducationalOrganization` — site-wide overrides are merged into the page's `@graph` array on top of the built-in defaults. Previously these defaults were rendered from the root layout outside the override pipeline, so a site-wide override of these types produced a duplicate `<script>` tag.
+
+        Merge order (most specific last): built-in defaults → site-wide → wildcard path → exact path. Each layer shallow-merges keys on top of the previous one.
+
+        When `schemaType` is one of the three core types, `payload["@id"]` is **required** and must be a non-empty string so cross-references like `WebSite.publisher` → `Organization#id` keep resolving after the merge. Validation returns 400 otherwise.
+
+        For any other schema type, the site-wide payload renders as its own standalone `<script>` tag the same way as before.
       tags: [SEO — Write]
       security:
         - ApiKeyAuth: []
