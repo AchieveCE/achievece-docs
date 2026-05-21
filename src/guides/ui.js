@@ -1,5 +1,5 @@
 import { loadGuides, canRead } from "./loader.js";
-import { renderGuide } from "./renderer.js";
+import { activateGuideDiagrams, renderGuide } from "./renderer.js";
 import { go } from "../router.js";
 
 const allGuides = loadGuides();
@@ -106,4 +106,7 @@ export function mountGuides(rootEl, { groups, slug }) {
 
   rootEl.innerHTML = `<div class="guides-shell">${sidebar}<main class="guides-main">${pane}</main></div>`;
   bindLinks(rootEl);
+  // Fire-and-forget mermaid activation. Lazy-loaded inside renderer; no-op if
+  // the current guide doesn't have any diagrams.
+  activateGuideDiagrams(rootEl);
 }

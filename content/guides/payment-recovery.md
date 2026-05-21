@@ -4,7 +4,7 @@ slug: payment-recovery
 groups: [admin, marketing, customer-service, payments, engineering]
 category: Billing
 summary: What happens when a customer's payment fails, the emails we send to win them back, and how marketing can use the resulting data
-updated: 2026-05-21
+updated: 2026-05-22
 ---
 
 # How payment recovery works
@@ -36,40 +36,48 @@ The payment recovery system is the layer that fills every gap in that table.
 
 Picture a customer named Sarah. Her debit card auto-charges on the 15th of each month for her AchieveCE Premium subscription. This month her balance was low and the charge failed.
 
-Here's her week.
+Here's her week, as a timeline.
 
-```
-Day 0  (morning)  Charge fails at Stripe.
-                  Within about a minute:
-                    Sarah gets an email titled
-                    "We could not process your payment"
-                    A banner shows up on her AchieveCE dashboard
-                    Marketing's "In dunning" Brevo list adds her
-                    Customer support gets pinged in Slack
+```mermaid
+sequenceDiagram
+  autonumber
+  participant S as Stripe
+  participant US as AchieveCE
+  participant E as Sarah's inbox
+  participant D as Sarah's dashboard
 
-Day 2-3           Stripe quietly retries the card. It fails again.
-                  Sarah gets the second email:
-                    "Quick reminder, your payment needs attention"
+  Note over S,D: Day 0, morning
+  S->>US: invoice.payment_failed
+  par
+    US->>E: "We could not process your payment"
+  and
+    US->>D: Show banner
+  and
+    US-->>US: Add Sarah to "In dunning" list
+  end
 
-Day 4-5           Stripe retries again. Fails again.
-                  Sarah gets the third email:
-                    "Your access is at risk"
+  Note over S,D: Day 2 to 3
+  S->>US: Smart Retry fails
+  US->>E: "Quick reminder, your payment needs attention"
 
-Day 6-7           Stripe retries one last time. Fails again.
-                  Sarah gets the last email:
-                    "Final notice, access pauses tomorrow"
+  Note over S,D: Day 4 to 5
+  S->>US: Smart Retry fails
+  US->>E: "Your access is at risk"
 
-Day 8             Either Sarah's payday came through (Stripe quietly
-                  succeeds on a retry, no email needed yet)
-                  OR she clicked the link in any of the emails and
-                  updated her card
-                  OR neither happened, and her access is paused
+  Note over S,D: Day 6 to 7
+  S->>US: Smart Retry fails
+  US->>E: "Final notice, access pauses tomorrow"
 
-If she recovered, she gets a "Your payment is back on track" email
-and the banner disappears.
-
-If she didn't, her subscription is canceled and she gets a
-"Your subscription has been paused" email.
+  Note over S,D: Day 8
+  alt Sarah recovered
+    S->>US: customer.subscription.updated (active)
+    US->>E: "Your payment is back on track"
+    US->>D: Banner disappears
+  else Stripe gave up
+    US->>S: Cancel subscription
+    US->>E: "Your subscription has been paused"
+    US->>D: Show "access paused" state
+  end
 ```
 
 That's the entire flow. Sarah experiences it as roughly four touchpoints over a week, all explaining the same thing in slightly more direct language each time. From our side, every step is automated, logged, and queryable.
@@ -78,59 +86,25 @@ That's the entire flow. Sarah experiences it as roughly four touchpoints over a 
 
 ## 3. The journey, as a flow chart
 
-This is the same story as above, but as a single diagram for anyone who reads visually.
+Same story as above, but as one diagram for anyone who reads visually.
 
-```
-                       Customer renewal date
-                              |
-                              v
-                  +---------------------------+
-                  |   Stripe charges card     |
-                  +---------------------------+
-                       |                |
-                  Success            Failure
-                       |                |
-                       v                v
-                  Renewal done    +---------------------------+
-                  Nothing else    | First failure detected    |
-                                  | We classify the failure   |
-                                  | (hard or soft, see s. 5)  |
-                                  | We mark the subscription  |
-                                  | as "past due"             |
-                                  +---------------------------+
-                                            |
-                              +-------------+-------------+
-                              |                           |
-                              v                           v
-                       Customer receives           Customer sees a banner
-                       email "We could not         on the AchieveCE
-                       process your payment"       dashboard, with a
-                                                   button to fix the card
-                              |                           |
-                              +-------------+-------------+
-                                            |
-                                            v
-                            +-----------------------------+
-                            | Stripe retries the card     |
-                            | over the next 7 days        |
-                            +-----------------------------+
-                                            |
-                +---------------------------+---------------------------+
-                |                                                       |
-              Recovers                                          Never recovers
-                |                                                       |
-                v                                                       v
-    +----------------------+                              +----------------------+
-    | "Your payment is     |                              | We cancel the        |
-    | back on track" email |                              | subscription at      |
-    | Banner disappears    |                              | Stripe. Customer     |
-    | Lists updated:       |                              | gets "Subscription   |
-    | added to Recovered,  |                              | paused" email.       |
-    | removed from In      |                              | Lists updated:       |
-    | dunning              |                              | added to Access      |
-    +----------------------+                              | revoked, removed     |
-                                                          | from In dunning      |
-                                                          +----------------------+
+```mermaid
+flowchart TD
+  Start([Customer renewal date]) --> Charge{Stripe charges<br/>the card}
+  Charge -- Success --> Done([Renewal done. Nothing else])
+  Charge -- Failure --> Detect[First failure detected<br/>Classify hard or soft<br/>Mark subscription past due]
+  Detect --> Notify[Send email<br/>+ show banner<br/>+ add to In dunning list]
+  Notify --> Retry[Stripe retries the card<br/>over the next 7 days]
+  Retry --> Outcome{Outcome}
+  Outcome -- Recovers --> Win[Payment recovered email<br/>Banner disappears<br/>Add to Recovered list<br/>Remove from In dunning]
+  Outcome -- Never recovers --> Cancel[Cancel subscription<br/>Subscription paused email<br/>Add to Access revoked list<br/>Remove from In dunning]
+
+  classDef happy fill:#dcfce7,stroke:#16a34a,color:#14532d;
+  classDef sad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+  classDef neutral fill:#f1f5f9,stroke:#64748b,color:#1e293b;
+  class Done,Win happy;
+  class Cancel sad;
+  class Detect,Notify,Retry neutral;
 ```
 
 ---
@@ -236,17 +210,21 @@ Brevo has a feature called "Automations" or "Workflows" where you can build flow
 
 Now our backend code decides when each email goes out and calls Brevo's email-sending API directly. The template name and the variables travel together in the same call, so they can't get separated. Marketing doesn't lose anything from this change because the templates themselves are still in Brevo and still editable there. Marketing just doesn't see the "send" step as a Brevo workflow.
 
-```
-Old setup (removed):                  New setup (current):
+```mermaid
+flowchart LR
+  subgraph Old["Old setup (removed)"]
+    direction TB
+    A1[Our code fires event<br/>to Brevo] --> A2[Brevo automation<br/>catches the event] --> A3[Brevo automation<br/>picks a template] --> A4[Brevo sends<br/>the email]
+  end
+  subgraph New["New setup (current)"]
+    direction TB
+    B1[Our code calls Brevo's<br/>send API directly<br/>with template ID + data] --> B2[Brevo sends<br/>the email]
+  end
 
-Our code                              Our code
-  fires event                           fires email directly
-  to Brevo                              to Brevo
-                                          with template ID + data
-Brevo automation                          attached
-  catches the event
-  picks a template                    Brevo sends the email
-  sends the email                       (no automation step)
+  classDef removed fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+  classDef current fill:#dcfce7,stroke:#16a34a,color:#14532d;
+  class A1,A2,A3,A4 removed;
+  class B1,B2 current;
 ```
 
 ---
@@ -257,36 +235,20 @@ Most subscription cancellations don't happen because someone deliberately cancel
 
 Here's how it works:
 
-```
-                         A week before
-                         renewal date
-                              |
-                              v
-                  Our system checks the
-                  card on file at Stripe
-                              |
-                +-------------+-------------+
-                |                           |
-                v                           v
-        Card is still valid          Card will expire
-        on the renewal date          before renewal
-                |                           |
-        Do nothing               Send a "Your card expires
-                                 soon" email with a one-click
-                                 sign-in link
-                                            |
-                                            v
-                                 Customer clicks the link
-                                            |
-                                            v
-                                 They land on /settings,
-                                 already signed in, on the
-                                 payment-methods tab.
-                                 No password needed.
-                                            |
-                                            v
-                                 They add the new card,
-                                 mark it as default, done.
+```mermaid
+flowchart TD
+  Start([A week before renewal date]) --> Check[Check the card on file<br/>at Stripe]
+  Check --> Decision{Will the card expire<br/>before the next renewal?}
+  Decision -- No --> Skip([Do nothing])
+  Decision -- Yes --> Email[Send Your card expires soon email<br/>with a one-click sign-in link]
+  Email --> Click[Customer clicks the link]
+  Click --> Landing[Lands on /settings,<br/>already signed in,<br/>on the payment-methods tab]
+  Landing --> Update[Customer adds the new card,<br/>marks it as default, done]
+
+  classDef happy fill:#dcfce7,stroke:#16a34a,color:#14532d;
+  classDef neutral fill:#f1f5f9,stroke:#64748b,color:#1e293b;
+  class Skip,Update happy;
+  class Check,Email,Click,Landing neutral;
 ```
 
 The one-click sign-in link is a "magic link" (a temporary URL that signs the customer in). It expires after an hour for security, and if a customer clicks an expired link, they land on the regular sign-in page with their email already filled in and a small banner explaining what happened.
