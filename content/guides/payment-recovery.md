@@ -38,47 +38,47 @@ Picture a customer named Sarah. Her debit card auto-charges on the 15th of each 
 
 Here's her week, as a timeline.
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant S as Stripe
-  participant US as AchieveCE
-  participant E as Sarah's inbox
-  participant D as Sarah's dashboard
-
-  Note over S,D: Day 0, morning
-  S->>US: invoice.payment_failed
-  par
-    US->>E: "We could not process your payment"
-  and
-    US->>D: Show banner
-  and
-    US-->>US: Add Sarah to "In dunning" list
-  end
-
-  Note over S,D: Day 2 to 3
-  S->>US: Smart Retry fails
-  US->>E: "Quick reminder, your payment needs attention"
-
-  Note over S,D: Day 4 to 5
-  S->>US: Smart Retry fails
-  US->>E: "Your access is at risk"
-
-  Note over S,D: Day 6 to 7
-  S->>US: Smart Retry fails
-  US->>E: "Final notice, access pauses tomorrow"
-
-  Note over S,D: Day 8
-  alt Sarah recovered
-    S->>US: customer.subscription.updated (active)
-    US->>E: "Your payment is back on track"
-    US->>D: Banner disappears
-  else Stripe gave up
-    US->>S: Cancel subscription
-    US->>E: "Your subscription has been paused"
-    US->>D: Show "access paused" state
-  end
-```
+<div class="timeline">
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 0<br/>morning</div>
+    <div class="timeline-day-content">
+      <p>Charge fails at Stripe. Within about a minute, Sarah gets the "We could not process your payment" email, a banner appears on her AchieveCE dashboard, marketing's "In dunning" Brevo list adds her, and customer support gets pinged in Slack.</p>
+    </div>
+  </div>
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 2 to 3</div>
+    <div class="timeline-day-content">
+      <p>Stripe quietly retries the card. It fails again. Sarah gets the second email, "Quick reminder, your payment needs attention."</p>
+    </div>
+  </div>
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 4 to 5</div>
+    <div class="timeline-day-content">
+      <p>Stripe retries again. Fails again. Sarah gets "Your access is at risk."</p>
+    </div>
+  </div>
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 6 to 7</div>
+    <div class="timeline-day-content">
+      <p>Stripe retries one last time. Fails again. Sarah gets "Final notice, access pauses tomorrow."</p>
+    </div>
+  </div>
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 8</div>
+    <div class="timeline-day-content">
+      <div class="timeline-day-branches">
+        <div class="timeline-branch recovered">
+          <div class="timeline-branch-title">Recovered</div>
+          Stripe Smart Retries finally worked or Sarah updated her card. She gets a "Your payment is back on track" email and the banner disappears.
+        </div>
+        <div class="timeline-branch failed">
+          <div class="timeline-branch-title">Stripe gave up</div>
+          Her subscription is canceled, she gets the "Your subscription has been paused" email.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 That's the entire flow. Sarah experiences it as roughly four touchpoints over a week, all explaining the same thing in slightly more direct language each time. From our side, every step is automated, logged, and queryable.
 

@@ -105,6 +105,23 @@
       .guide-article table td { padding: 10px 14px; color: var(--scalar-color-2); border: 1px solid var(--scalar-color-background-3); vertical-align: top; }
       .guide-article table tbody tr:nth-child(even) td { background: var(--scalar-color-background-2); }
       .guide-article table strong { color: var(--scalar-color-1); }
+      .guide-article .timeline { display: flex; flex-direction: column; gap: 14px; margin: 24px 0; }
+      .guide-article .timeline-day { display: grid; grid-template-columns: 120px 1fr; gap: 16px; align-items: stretch; }
+      .guide-article .timeline-day-label { display: flex; align-items: center; justify-content: center; padding: 10px 12px; background: var(--scalar-color-accent); color: #ffffff; border-radius: 8px; font-weight: 600; font-size: 13px; letter-spacing: 0.02em; text-align: center; line-height: 1.3; }
+      .guide-article .timeline-day-content { padding: 14px 18px; background: var(--scalar-color-background-2); border: 1px solid var(--scalar-color-background-3); border-left: 3px solid var(--scalar-color-accent); border-radius: 8px; color: var(--scalar-color-2); font-size: 14px; line-height: 1.6; }
+      .guide-article .timeline-day-content p { margin: 0; color: inherit; }
+      .guide-article .timeline-day-branches { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .guide-article .timeline-branch { padding: 14px 16px; border-radius: 8px; font-size: 14px; line-height: 1.55; }
+      .guide-article .timeline-branch-title { font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+      .guide-article .timeline-branch.recovered { background: #ecfdf5; border: 1px solid #a7f3d0; border-left: 3px solid #10b981; color: #064e3b; }
+      .guide-article .timeline-branch.recovered .timeline-branch-title { color: #047857; }
+      .guide-article .timeline-branch.failed { background: #fef2f2; border: 1px solid #fecaca; border-left: 3px solid #dc2626; color: #7f1d1d; }
+      .guide-article .timeline-branch.failed .timeline-branch-title { color: #b91c1c; }
+      @media (max-width: 640px) {
+        .guide-article .timeline-day { grid-template-columns: 1fr; }
+        .guide-article .timeline-day-label { justify-content: flex-start; }
+        .guide-article .timeline-day-branches { grid-template-columns: 1fr; }
+      }
       .guide-article .mermaid { display: flex; justify-content: center; padding: 24px; margin: 20px 0; background: #ffffff; border: 1px solid var(--scalar-color-background-3); border-radius: 8px; overflow-x: auto; color: #1e293b; }
       .guide-article .mermaid svg { max-width: 100%; height: auto; }
       .guide-article .mermaid svg text,
