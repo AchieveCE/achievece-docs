@@ -12,18 +12,36 @@ function loadMermaid() {
       const m = mod.default || mod;
       m.initialize({
         startOnLoad: false,
-        theme: "default",
+        theme: "base",
         themeVariables: {
           primaryColor: "#0d9488",
-          primaryTextColor: "#03071c",
-          primaryBorderColor: "#0d9488",
-          lineColor: "#494a57",
-          secondaryColor: "#f1f2f6",
-          tertiaryColor: "#f8f9fc",
+          primaryTextColor: "#ffffff",
+          primaryBorderColor: "#0f766e",
+          secondaryColor: "#e2e8f0",
+          secondaryTextColor: "#1e293b",
+          secondaryBorderColor: "#94a3b8",
+          tertiaryColor: "#f8fafc",
+          tertiaryTextColor: "#1e293b",
+          tertiaryBorderColor: "#cbd5e1",
+          lineColor: "#64748b",
+          mainBkg: "#e2e8f0",
+          nodeTextColor: "#1e293b",
+          nodeBorder: "#94a3b8",
+          edgeLabelBackground: "#ffffff",
+          clusterBkg: "#f8fafc",
+          clusterBorder: "#cbd5e1",
           fontFamily:
             "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
+          fontSize: "14px",
         },
-        flowchart: { htmlLabels: true, curve: "basis", padding: 16 },
+        flowchart: {
+          htmlLabels: true,
+          curve: "basis",
+          padding: 22,
+          nodeSpacing: 50,
+          rankSpacing: 60,
+          diagramPadding: 16,
+        },
         sequence: { actorMargin: 60 },
       });
       return m;
