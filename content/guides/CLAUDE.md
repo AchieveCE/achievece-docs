@@ -39,6 +39,24 @@ Use relative Markdown links: `[See payment recoveries](example-guide.md)`. The r
 
 Put binary assets in `public/guides/<slug>/foo.png` and reference them as `/guides/<slug>/foo.png`. Vite serves `public/` at the site root, so the URL works in dev and prod identically.
 
+## Diagrams
+
+Two options, pick per diagram:
+
+- **Mermaid** when the diagram is likely to change, or engineers will edit it in PRs. Author with a ` ```mermaid ` fenced block. Themed by [src/guides/renderer.js](../../src/guides/renderer.js). Lazy-loads ~600 KB of JS on first use; subsequent guides reuse it.
+- **Excalidraw SVG** when the diagram is a headline visual that needs to read as designed and won't change weekly. Author at [excalidraw.com](https://excalidraw.com), export as SVG with **Embed scene** checked, commit the file under `public/guides/<slug>/<name>.svg`. The `Embed scene` flag round-trips: drag the SVG back into Excalidraw to keep editing. Zero runtime cost (native browser SVG render). Diffs are useless, so don't use this for diagrams that change often.
+
+Wrap Excalidraw diagrams in the shared `figure.diagram` shell so dark-mode users get a pinned white background and an optional caption:
+
+```html
+<figure class="diagram">
+  <img src="/guides/payment-recovery/section-3.svg" alt="Customer journey flow" />
+  <figcaption>How a failed charge becomes either a recovery or a cancellation.</figcaption>
+</figure>
+```
+
+The `figcaption` is optional. Marked passes raw HTML through, so this works inline anywhere in a guide.
+
 ## Security boundary
 
 Client-side filtering is **not** a security boundary. The Markdown body is shipped to every authenticated user as part of the JS bundle — the filter only controls whether it gets rendered. Do not put:

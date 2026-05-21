@@ -136,6 +136,10 @@
       @media (max-width: 640px) {
         .guide-article .comparison { grid-template-columns: 1fr; }
       }
+      .guide-article figure.diagram { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 24px 0; padding: 24px; background: #ffffff; border: 1px solid var(--scalar-color-background-3); border-radius: 8px; overflow-x: auto; }
+      .guide-article figure.diagram img,
+      .guide-article figure.diagram svg { max-width: 100%; height: auto; display: block; }
+      .guide-article figure.diagram figcaption { color: #475569; font-size: 13px; font-style: italic; text-align: center; line-height: 1.5; margin: 0; }
       .guide-article .mermaid { display: flex; justify-content: center; padding: 24px; margin: 20px 0; background: #ffffff; border: 1px solid var(--scalar-color-background-3); border-radius: 8px; overflow-x: auto; color: #1e293b; }
       .guide-article .mermaid svg { max-width: 100%; height: auto; }
       .guide-article .mermaid svg text,
