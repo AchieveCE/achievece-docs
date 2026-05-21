@@ -4,7 +4,7 @@ slug: payment-recovery
 groups: [admin, marketing, customer-service, payments, engineering]
 category: Billing
 summary: What happens when a customer's payment fails, the emails we send to win them back, and how marketing can use the resulting data
-updated: 2026-05-22
+updated: 2026-05-21
 ---
 
 # How payment recovery works
