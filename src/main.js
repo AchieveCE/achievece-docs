@@ -28,6 +28,9 @@ function showShell(session) {
 
   document.getElementById("auth-gate").style.display = "none";
   document.getElementById("docs-shell").classList.add("authenticated");
+  // Scalar adds `dark-mode` once it mounts; do it preemptively so the chrome
+  // and the /guides view match even when the user lands there directly.
+  document.body.classList.add("dark-mode");
   document.getElementById("user-email").textContent =
     user.signInDetails?.loginId || user.username;
 

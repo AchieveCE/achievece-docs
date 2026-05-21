@@ -62,7 +62,7 @@ function renderLanding(allowed) {
         </a>`
     )
     .join("");
-  return `<div class="guides-landing"><h1>Guides</h1><div class="guide-cards">${cards}</div></div>`;
+  return `<div class="guides-landing"><h1>Guides</h1><p class="guides-landing-sub">Internal long-form documentation for the AchieveCE team.</p><div class="guide-cards">${cards}</div></div>`;
 }
 
 function renderNotFound() {
