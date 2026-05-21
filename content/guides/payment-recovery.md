@@ -210,22 +210,24 @@ Brevo has a feature called "Automations" or "Workflows" where you can build flow
 
 Now our backend code decides when each email goes out and calls Brevo's email-sending API directly. The template name and the variables travel together in the same call, so they can't get separated. Marketing doesn't lose anything from this change because the templates themselves are still in Brevo and still editable there. Marketing just doesn't see the "send" step as a Brevo workflow.
 
-```mermaid
-flowchart LR
-  subgraph Old["Old setup (removed)"]
-    direction TB
-    A1[Our code fires event<br/>to Brevo] --> A2[Brevo automation<br/>catches the event] --> A3[Brevo automation<br/>picks a template] --> A4[Brevo sends<br/>the email]
-  end
-  subgraph New["New setup (current)"]
-    direction TB
-    B1[Our code calls Brevo's<br/>send API directly<br/>with template ID + data] --> B2[Brevo sends<br/>the email]
-  end
-
-  classDef removed fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
-  classDef current fill:#dcfce7,stroke:#16a34a,color:#14532d;
-  class A1,A2,A3,A4 removed;
-  class B1,B2 current;
-```
+<div class="comparison">
+  <div class="comparison-card removed">
+    <div class="comparison-card-header">Removed</div>
+    <ol>
+      <li>Our code fires event to Brevo.</li>
+      <li>Brevo automation catches the event.</li>
+      <li>Brevo automation picks a template.</li>
+      <li>Brevo sends the email.</li>
+    </ol>
+  </div>
+  <div class="comparison-card current">
+    <div class="comparison-card-header">Current</div>
+    <ol>
+      <li>Our code calls Brevo's send API directly with template ID and data.</li>
+      <li>Brevo sends the email.</li>
+    </ol>
+  </div>
+</div>
 
 ---
 

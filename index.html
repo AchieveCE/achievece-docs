@@ -122,6 +122,20 @@
         .guide-article .timeline-day-label { justify-content: flex-start; }
         .guide-article .timeline-day-branches { grid-template-columns: 1fr; }
       }
+      .guide-article .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0; }
+      .guide-article .comparison-card { padding: 18px 20px; border-radius: 10px; border: 1px solid var(--scalar-color-background-3); background: var(--scalar-color-background-2); display: flex; flex-direction: column; gap: 10px; }
+      .guide-article .comparison-card-header { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 8px; border-bottom: 1px solid var(--scalar-color-background-3); }
+      .guide-article .comparison-card ol { margin: 0; padding-left: 20px; color: var(--scalar-color-2); font-size: 14px; line-height: 1.6; }
+      .guide-article .comparison-card ol li { margin: 6px 0; }
+      .guide-article .comparison-card.removed { background: #fef2f2; border-color: #fecaca; border-left: 3px solid #dc2626; }
+      .guide-article .comparison-card.removed .comparison-card-header { color: #b91c1c; border-bottom-color: #fecaca; }
+      .guide-article .comparison-card.removed ol { color: #7f1d1d; }
+      .guide-article .comparison-card.current { background: #ecfdf5; border-color: #a7f3d0; border-left: 3px solid #10b981; }
+      .guide-article .comparison-card.current .comparison-card-header { color: #047857; border-bottom-color: #a7f3d0; }
+      .guide-article .comparison-card.current ol { color: #064e3b; }
+      @media (max-width: 640px) {
+        .guide-article .comparison { grid-template-columns: 1fr; }
+      }
       .guide-article .mermaid { display: flex; justify-content: center; padding: 24px; margin: 20px 0; background: #ffffff; border: 1px solid var(--scalar-color-background-3); border-radius: 8px; overflow-x: auto; color: #1e293b; }
       .guide-article .mermaid svg { max-width: 100%; height: auto; }
       .guide-article .mermaid svg text,
