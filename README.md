@@ -40,3 +40,7 @@ ACHIEVECE_DOCS_ROOT=/path/to/achievece-docs bun run docs:sync
 Import this directory as its **own** Git repository (or monorepo subfolder with root = `achievece-docs`). Build: `bun run build`, output: `dist`.
 
 In **achievece-web**, optional GitHub secret `ACHIEVECE_DOCS_VERCEL_DEPLOY_HOOK` triggers a docs redeploy when API routes or `docs/openapi/` change (see `achievece-web/.github/workflows/trigger-api-docs-deploy.yml`).
+
+## Internal guides (`/guides`)
+
+The site also hosts an internal long-form wiki at `/guides` and `/guides/<slug>`, alongside the Scalar API reference. Each guide is a Markdown file in `content/guides/` with YAML frontmatter listing which Cognito groups can read it (intersection check, `admin` overrides). To add a guide, drop a `<slug>.md` into `content/guides/` — see [CLAUDE.md](CLAUDE.md) and [content/guides/CLAUDE.md](content/guides/CLAUDE.md) for the schema and conventions.
