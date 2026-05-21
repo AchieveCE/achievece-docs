@@ -2,8 +2,9 @@
 
 The AchieveCE API documentation is protected by a dedicated AWS Cognito user pool. Two roles are supported:
 
-- **admin** — sees every route, including `SEO — Admin` endpoints.
+- **admin** — sees every route, including `SEO — Admin` endpoints, plus every internal `/guides` page.
 - **consumer** — sees Faculty and `SEO — Read` / `SEO — Write` routes only. Admin routes are stripped client-side from the OpenAPI spec before it's rendered.
+- **engineering**, **payments**, **marketing**, **customer-service** — internal teams. Used by the `/guides` frontmatter filter (see `CLAUDE.md`), not by the OpenAPI tag filter.
 
 ## Resources
 
@@ -15,7 +16,7 @@ The AchieveCE API documentation is protected by a dedicated AWS Cognito user poo
 | App Client ID | `3gs30hneto0ha0rsrbrt0ut3gj` |
 | App Client Name | `achievece-docs-app-client` |
 | Hosted UI Domain | `achievece-docs-auth.auth.us-east-2.amazoncognito.com` |
-| Groups | `admin`, `consumer` |
+| Groups | `admin`, `consumer`, `engineering`, `payments`, `marketing`, `customer-service` |
 | AWS Profile | `achievece` |
 
 ### App client config
@@ -42,7 +43,28 @@ Initial passwords were generated at provisioning time and shared with the projec
 
 ## How role filtering works
 
-The frontend reads `cognito:groups` from the ID token. If the user is **not** in `admin`, any path whose operations are tagged with a prefix in `ADMIN_TAG_PREFIXES` (currently `SEO — Admin`) is removed from the OpenAPI spec before it's handed to Scalar. To add more admin tags, edit `ADMIN_TAG_PREFIXES` in `index.html`.
+The frontend reads `cognito:groups` from the ID token. If the user is **not** in `admin`, any path whose operations are tagged with a prefix in `ADMIN_TAG_PREFIXES` (currently `SEO — Admin`) is removed from the OpenAPI spec before it's handed to Scalar. To add more admin tags, edit `ADMIN_TAG_PREFIXES` in `src/api-reference.js`.
+
+The internal `/guides` section uses a **separate** filter: each guide's Markdown frontmatter carries a `groups:` array, and a user can read the guide if any of those groups appears in their `cognito:groups` claim (with `admin` as a global override). The OpenAPI tag filter and the guide frontmatter filter do not share code — see `CLAUDE.md` for the distinction.
+
+## Creating additional groups
+
+Region `us-east-2`, profile `achievece`. "Already exists" errors are safe to ignore.
+
+```bash
+aws cognito-idp create-group --user-pool-id us-east-2_0gKmcU86y --group-name engineering       --region us-east-2 --profile achievece
+aws cognito-idp create-group --user-pool-id us-east-2_0gKmcU86y --group-name payments          --region us-east-2 --profile achievece
+aws cognito-idp create-group --user-pool-id us-east-2_0gKmcU86y --group-name marketing         --region us-east-2 --profile achievece
+aws cognito-idp create-group --user-pool-id us-east-2_0gKmcU86y --group-name customer-service  --region us-east-2 --profile achievece
+```
+
+Verify:
+
+```bash
+aws cognito-idp list-groups --user-pool-id us-east-2_0gKmcU86y --region us-east-2 --profile achievece
+```
+
+When adding a brand-new group beyond the six current ones, also append it to `VALID_GROUPS` in `src/guides/loader.js` and to the table in `CLAUDE.md`.
 
 ## Common operations
 

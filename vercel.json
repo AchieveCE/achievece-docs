@@ -11,6 +11,14 @@
     {
       "source": "/callback",
       "destination": "/index.html"
+    },
+    {
+      "source": "/guides",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/guides/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
