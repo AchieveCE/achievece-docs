@@ -105,8 +105,16 @@
       .guide-article table td { padding: 10px 14px; color: var(--scalar-color-2); border: 1px solid var(--scalar-color-background-3); vertical-align: top; }
       .guide-article table tbody tr:nth-child(even) td { background: var(--scalar-color-background-2); }
       .guide-article table strong { color: var(--scalar-color-1); }
-      .guide-article .mermaid { display: flex; justify-content: center; padding: 24px; margin: 20px 0; background: var(--scalar-color-background-2); border: 1px solid var(--scalar-color-background-3); border-radius: 8px; overflow-x: auto; }
+      .guide-article .mermaid { display: flex; justify-content: center; padding: 24px; margin: 20px 0; background: #ffffff; border: 1px solid var(--scalar-color-background-3); border-radius: 8px; overflow-x: auto; color: #1e293b; }
       .guide-article .mermaid svg { max-width: 100%; height: auto; }
+      .guide-article .mermaid svg text,
+      .guide-article .mermaid svg .nodeLabel,
+      .guide-article .mermaid svg .edgeLabel,
+      .guide-article .mermaid svg .edgeLabel p,
+      .guide-article .mermaid svg .messageText,
+      .guide-article .mermaid svg foreignObject div { color: #1e293b !important; fill: #1e293b !important; }
+      .guide-article .mermaid svg .edgeLabel { background-color: #ffffff !important; }
+      .guide-article .mermaid svg .edgeLabel rect { fill: #ffffff !important; }
       .guide-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--scalar-color-background-3); color: var(--scalar-color-3); font-size: 12px; }
       .guide-footer a { color: var(--scalar-color-2); }
     </style>
