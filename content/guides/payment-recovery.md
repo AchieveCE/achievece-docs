@@ -38,47 +38,9 @@ Picture a customer named Sarah. Her debit card auto-charges on the 15th of each 
 
 Here's her week, as a timeline.
 
-<div class="timeline">
-  <div class="timeline-day">
-    <div class="timeline-day-label">Day 0<br/>morning</div>
-    <div class="timeline-day-content">
-      <p>Charge fails at Stripe. Within about a minute, Sarah gets the "We could not process your payment" email, a banner appears on her AchieveCE dashboard, marketing's "In dunning" Brevo list adds her, and customer support gets pinged in Slack.</p>
-    </div>
-  </div>
-  <div class="timeline-day">
-    <div class="timeline-day-label">Day 2 to 3</div>
-    <div class="timeline-day-content">
-      <p>Stripe quietly retries the card. It fails again. Sarah gets the second email, "Quick reminder, your payment needs attention."</p>
-    </div>
-  </div>
-  <div class="timeline-day">
-    <div class="timeline-day-label">Day 4 to 5</div>
-    <div class="timeline-day-content">
-      <p>Stripe retries again. Fails again. Sarah gets "Your access is at risk."</p>
-    </div>
-  </div>
-  <div class="timeline-day">
-    <div class="timeline-day-label">Day 6 to 7</div>
-    <div class="timeline-day-content">
-      <p>Stripe retries one last time. Fails again. Sarah gets "Final notice, access pauses tomorrow."</p>
-    </div>
-  </div>
-  <div class="timeline-day">
-    <div class="timeline-day-label">Day 8</div>
-    <div class="timeline-day-content">
-      <div class="timeline-day-branches">
-        <div class="timeline-branch recovered">
-          <div class="timeline-branch-title">Recovered</div>
-          Stripe Smart Retries finally worked or Sarah updated her card. She gets a "Your payment is back on track" email and the banner disappears.
-        </div>
-        <div class="timeline-branch failed">
-          <div class="timeline-branch-title">Stripe gave up</div>
-          Her subscription is canceled, she gets the "Your subscription has been paused" email.
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+<figure class="diagram">
+  <img src="/guides/payment-recovery/customer-journey.svg" alt="Sarah's week, day-by-day timeline from first failure to either recovery or cancellation" />
+</figure>
 
 That's the entire flow. Sarah experiences it as roughly four touchpoints over a week, all explaining the same thing in slightly more direct language each time. From our side, every step is automated, logged, and queryable.
 
@@ -88,24 +50,9 @@ That's the entire flow. Sarah experiences it as roughly four touchpoints over a 
 
 Same story as above, but as one diagram for anyone who reads visually.
 
-```mermaid
-flowchart TD
-  Start([Customer renewal date]) --> Charge{Stripe charges<br/>the card}
-  Charge -- Success --> Done([Renewal done. Nothing else])
-  Charge -- Failure --> Detect[First failure detected<br/>Classify hard or soft<br/>Mark subscription past due]
-  Detect --> Notify[Send email<br/>+ show banner<br/>+ add to In dunning list]
-  Notify --> Retry[Stripe retries the card<br/>over the next 7 days]
-  Retry --> Outcome{Outcome}
-  Outcome -- Recovers --> Win[Payment recovered email<br/>Banner disappears<br/>Add to Recovered list<br/>Remove from In dunning]
-  Outcome -- Never recovers --> Cancel[Cancel subscription<br/>Subscription paused email<br/>Add to Access revoked list<br/>Remove from In dunning]
-
-  classDef happy fill:#dcfce7,stroke:#16a34a,color:#14532d;
-  classDef sad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
-  classDef neutral fill:#f1f5f9,stroke:#64748b,color:#1e293b;
-  class Done,Win happy;
-  class Cancel sad;
-  class Detect,Notify,Retry neutral;
-```
+<figure class="diagram">
+  <img src="/guides/payment-recovery/recovery-journey.svg" alt="Decision tree from a customer's renewal date through to either recovery or canceled subscription" />
+</figure>
 
 ---
 
