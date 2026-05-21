@@ -77,6 +77,16 @@ bun run build      # outputs to dist/
 - **Do not change** the new-badge `localStorage` key (`achievece-docs-viewed-new-v4.13.0`). Rotating it forces every user to re-see every "New" dot.
 - **Do not refactor `awaitOAuthCompletion()`** speculatively. It was a recent fix (commit `06eb288`) that replaced an 800 ms timeout with a Hub event wait; behavior must stay 1:1.
 
+## Dev-only preview hatch
+
+For UI iteration without going through Cognito, hit:
+
+```
+http://localhost:3003/?preview=admin,engineering,payments
+```
+
+`src/main.js` reads `?preview=<csv>` only when `import.meta.env.DEV` is true, stores the groups in `sessionStorage`, strips the query param, and renders the shell as if those Cognito groups were signed in. The browser session persists until you hit "Sign out" or close the tab. Vite tree-shakes the entire branch out of production builds. Combine with any path (`/?preview=consumer`, `/guides?preview=engineering`) to simulate a specific user's view.
+
 ## Testing access locally
 
 [COGNITO_SETUP.md](COGNITO_SETUP.md) lists the seed users:

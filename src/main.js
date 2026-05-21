@@ -1,6 +1,32 @@
 import * as auth from "./auth.js";
 import { start } from "./router.js";
 
+const PREVIEW_STORAGE_KEY = "achievece-docs-preview-groups";
+
+// Dev-only escape hatch: hit `?preview=admin,engineering,payments` once to
+// skip Cognito for the rest of the browser session. Lets us iterate on styling
+// without going through the OAuth flow. Compiled out of production builds
+// because `import.meta.env.DEV` is replaced with `false` by Vite at build time.
+function readPreviewGroups() {
+  if (!import.meta.env.DEV) return null;
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("preview");
+  if (raw != null) {
+    const groups = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    try { sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(groups)); } catch {}
+    // Strip the query param so subsequent SPA navigations stay clean.
+    const cleanUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl);
+    return groups;
+  }
+  try {
+    const stored = sessionStorage.getItem(PREVIEW_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
 auth.init();
 
 function titleCase(s) {
@@ -41,7 +67,12 @@ function showShell(session) {
 
   document.getElementById("sign-out-btn").addEventListener("click", async () => {
     try {
+      sessionStorage.removeItem(PREVIEW_STORAGE_KEY);
+    } catch {}
+    try {
       await auth.signOut();
+    } catch {
+      // Preview sessions have no real Amplify session; ignore.
     } finally {
       window.location.reload();
     }
@@ -51,6 +82,15 @@ function showShell(session) {
 }
 
 async function init() {
+  const previewGroups = readPreviewGroups();
+  if (previewGroups) {
+    showShell({
+      user: { signInDetails: { loginId: "preview@local" }, username: "preview" },
+      groups: previewGroups,
+    });
+    return;
+  }
+
   const params = new URLSearchParams(window.location.search);
   const isCallback = params.has("code") || window.location.pathname === "/callback";
   if (isCallback) {

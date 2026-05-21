@@ -23,9 +23,9 @@
         --scalar-color-1: #f8f9fc;
         --scalar-color-2: #b4b5bf;
         --scalar-color-3: #8e8f9b;
-        --scalar-color-background-1: #0f0f14;
-        --scalar-color-background-2: #1a1a24;
-        --scalar-color-background-3: #25252f;
+        --scalar-color-background-1: #000212;
+        --scalar-color-background-2: #0c0e21;
+        --scalar-color-background-3: #1a1c30;
       }
       html, body { margin: 0; padding: 0; height: 100%; }
       body { font-family: var(--scalar-font); background: var(--scalar-color-background-1); color: var(--scalar-color-1); }
@@ -55,8 +55,10 @@
       #scalar-root { flex: 1; min-height: 0; }
       #guides-root { flex: 1; min-height: 0; display: flex; }
       .new-dot { display: inline-block; width: 8px; height: 8px; margin-left: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.25); flex-shrink: 0; vertical-align: middle; pointer-events: none; }
-      .guides-shell { display: flex; flex: 1; min-width: 0; min-height: 0; background: var(--scalar-color-background-1); color: var(--scalar-color-1); }
-      .guides-sidebar { width: 280px; flex-shrink: 0; border-right: 1px solid var(--scalar-color-background-3); background: var(--scalar-color-background-1); overflow-y: auto; }
+      .guides-shell { display: flex; flex: 1; min-width: 0; min-height: 0; background: var(--scalar-color-background-1); color: var(--scalar-color-1); position: relative; }
+      .guides-shell::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(80% 50% at 50% -20%, rgba(120, 119, 198, 0.22), rgba(0, 0, 0, 0)); z-index: 0; }
+      .guides-shell > * { position: relative; z-index: 1; }
+      .guides-sidebar { width: 280px; flex-shrink: 0; border-right: 1px solid var(--scalar-color-background-3); background: transparent; overflow-y: auto; }
       .guides-sidebar-inner { padding: 20px 14px 32px; }
       .guides-home { display: block; padding: 8px 12px; margin-bottom: 8px; color: var(--scalar-color-2); font-size: 13px; font-weight: 500; text-decoration: none; border-radius: 6px; }
       .guides-home:hover { background: var(--scalar-color-background-2); color: var(--scalar-color-1); }
