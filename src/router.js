@@ -4,12 +4,21 @@ import { mountGuides } from "./guides/ui.js";
 let userGroups = [];
 let apiMounted = false;
 
-function parse(pathname) {
-  if (pathname === "/" || pathname === "") return { view: "api" };
+function canSeeApi(groups) {
+  return groups.includes("admin") || groups.includes("consumer");
+}
+
+function parse(pathname, groups) {
+  const apiAllowed = canSeeApi(groups);
+  if (pathname === "/" || pathname === "") {
+    return apiAllowed ? { view: "api" } : { view: "guides", slug: null, redirectTo: "/guides" };
+  }
   if (pathname === "/guides" || pathname === "/guides/") return { view: "guides", slug: null };
   const m = pathname.match(/^\/guides\/([^/]+)\/?$/);
   if (m) return { view: "guides", slug: decodeURIComponent(m[1]) };
-  return { view: "api", redirect: true };
+  return apiAllowed
+    ? { view: "api", redirectTo: "/" }
+    : { view: "guides", slug: null, redirectTo: "/guides" };
 }
 
 function setActiveTab(view) {
@@ -28,10 +37,10 @@ function show(view) {
 }
 
 function render(pathname) {
-  const route = parse(pathname);
-  if (route.redirect) {
-    history.replaceState({}, "", "/");
-    return render("/");
+  const route = parse(pathname, userGroups);
+  if (route.redirectTo) {
+    history.replaceState({}, "", route.redirectTo);
+    return render(route.redirectTo);
   }
   if (route.view === "api") {
     show("api");
@@ -54,7 +63,10 @@ export function go(path) {
 export function start({ groups }) {
   userGroups = groups;
 
-  document.getElementById("tab-api")?.addEventListener("click", (e) => {
+  const apiTab = document.getElementById("tab-api");
+  if (apiTab && !canSeeApi(groups)) apiTab.style.display = "none";
+
+  apiTab?.addEventListener("click", (e) => {
     e.preventDefault();
     go("/");
   });
