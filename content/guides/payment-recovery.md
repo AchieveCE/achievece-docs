@@ -4,14 +4,14 @@ slug: payment-recovery
 groups: [admin, marketing, customer-service, payments, engineering]
 category: Billing
 summary: What happens when a customer's payment fails, the emails we send to win them back, and how marketing can use the resulting data
-updated: 2026-05-21
+updated: 2026-05-29
 ---
 
 # How payment recovery works
 
-When a customer's credit card gets declined at renewal time, this is what AchieveCE does about it. The system runs entirely on its own, every day, with no manual steps. This guide explains what's happening behind the curtain so you can answer questions from customers, build campaigns off the data it generates, and know which lever to pull when something looks off.
+When a customer's credit card gets declined at renewal time, this is what AchieveCE does about it. The system runs entirely on its own, every day, with no manual steps. This guide explains what's happening behind the scenes so you can answer questions from customers, build campaigns off the data it generates, and know which lever to pull when something looks off. It's written for support, marketing, and admin; engineering should be able to read it and confirm it's accurate.
 
-If you read nothing else, read section 1 (the problem) and section 4 (the four contact lists). Those are the parts marketing and support need most often.
+If you read nothing else, read section 1 (the problem) and section 3 (the four contact lists). Those are the parts marketing and support need most often.
 
 ---
 
@@ -32,7 +32,7 @@ The payment recovery system is the layer that fills every gap in that table.
 
 ---
 
-## 2. What happens, in plain English
+## 2. What a failed payment looks like
 
 Picture a customer named Sarah. Her debit card auto-charges on the 15th of each month for her AchieveCE Premium subscription. This month her balance was low and the charge failed.
 
@@ -84,32 +84,7 @@ That's the entire flow. Sarah experiences it as roughly four touchpoints over a 
 
 ---
 
-## 3. The journey, as a flow chart
-
-Same story as above, but as one diagram for anyone who reads visually.
-
-```mermaid
-flowchart TD
-  Start([Customer renewal date]) --> Charge{Stripe charges<br/>the card}
-  Charge -- Success --> Done([Renewal done. Nothing else])
-  Charge -- Failure --> Detect[First failure detected<br/>Classify hard or soft<br/>Mark subscription past due]
-  Detect --> Notify[Send email<br/>+ show banner<br/>+ add to In dunning list]
-  Notify --> Retry[Stripe retries the card<br/>over the next 7 days]
-  Retry --> Outcome{Outcome}
-  Outcome -- Recovers --> Win[Payment recovered email<br/>Banner disappears<br/>Add to Recovered list<br/>Remove from In dunning]
-  Outcome -- Never recovers --> Cancel[Cancel subscription<br/>Subscription paused email<br/>Add to Access revoked list<br/>Remove from In dunning]
-
-  classDef happy fill:#dcfce7,stroke:#16a34a,color:#000000;
-  classDef sad fill:#fee2e2,stroke:#dc2626,color:#000000;
-  classDef neutral fill:#f1f5f9,stroke:#64748b,color:#000000;
-  class Done,Win happy;
-  class Cancel sad;
-  class Detect,Notify,Retry neutral;
-```
-
----
-
-## 4. The four marketing lists
+## 3. The four marketing lists
 
 This is the part most useful to marketing day to day.
 
@@ -137,7 +112,7 @@ If the reconciliation has to move more than 10 customers in one morning, a Slack
 
 ---
 
-## 5. Hard fails versus soft fails
+## 4. Hard fails versus soft fails
 
 Every failed charge falls into one of two buckets, and the email we send depends on which one.
 
@@ -156,7 +131,7 @@ About 80 percent of failures are soft and 20 percent are hard. The system fires 
 
 ---
 
-## 6. The 12 emails
+## 5. The 12 emails
 
 There are twelve different emails the system can send. Marketing owns the visual design and copy of all of them inside Brevo. Engineering owns when each one fires.
 
@@ -192,7 +167,7 @@ Each template has a small set of variable placeholders that get filled in at sen
 
 ---
 
-## 7. How Brevo plays into this
+## 6. How Brevo plays into this
 
 We use Brevo for two specific things and one we deliberately don't use.
 
@@ -200,7 +175,7 @@ We use Brevo for two specific things and one we deliberately don't use.
 
 Email templates are stored in the Brevo dashboard. Marketing maintains the visual design, the wording, and any tweaks. Updating an email template doesn't require an engineering deploy or even an engineer in the loop. You go to Brevo, open the template, change what you want, save. The next email sent through that template uses your new version.
 
-Contact lists are stored in Brevo too. The four lists from section 4 live in a folder called "Subscription Management" in the Brevo dashboard. Marketing can browse them, use them as audiences inside Brevo, or sync them out to Meta and Google.
+Contact lists are stored in Brevo too. The four lists from section 3 live in a folder called "Subscription Management" in the Brevo dashboard. Marketing can browse them, use them as audiences inside Brevo, or sync them out to Meta and Google.
 
 Brevo also handles the actual mechanics of sending: deliverability, bounce handling, unsubscribe links, the SMTP plumbing. We never think about any of that.
 
@@ -231,7 +206,7 @@ Now our backend code decides when each email goes out and calls Brevo's email-se
 
 ---
 
-## 8. The "card expires soon" flow
+## 7. The "card expires soon" flow
 
 Most subscription cancellations don't happen because someone deliberately cancels. They happen because the card on file silently expires and the next charge fails. We try to head this off about a week in advance.
 
@@ -259,7 +234,7 @@ The customer's email address is added to the **Card expiring soon** list at this
 
 ---
 
-## 9. The in-app banner
+## 8. The in-app banner
 
 When a customer is in trouble (their last payment failed), they see this on top of every page of their AchieveCE dashboard:
 
@@ -278,7 +253,7 @@ Dismissing the banner hides it for the current browser session only. The next ti
 
 ---
 
-## 10. Where customers manage their cards
+## 9. Where customers manage their cards
 
 The canonical place is **Settings -> Payment Methods**. Here's what's on that page:
 
@@ -295,7 +270,7 @@ This is where every email's main button (and the banner's main button) points. T
 
 ---
 
-## 11. Common questions from customers (and the right answers)
+## 10. Common questions from customers
 
 ### "I got a 'payment failed' email but I haven't done anything different."
 
@@ -322,7 +297,7 @@ Note for marketing: this customer is in the **Access revoked** list. If they res
 
 ---
 
-## 12. What marketing can do with this
+## 11. What marketing can do with this
 
 A few starting points, not a playbook.
 
@@ -332,7 +307,7 @@ A few starting points, not a playbook.
 
 ---
 
-## 13. Glossary
+## 12. Glossary
 
 | Term | What it means here |
 | --- | --- |
