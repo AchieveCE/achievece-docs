@@ -11,7 +11,7 @@ updated: 2026-05-29
 
 When a customer's credit card gets declined at renewal time, this is what AchieveCE does about it. The system runs entirely on its own, every day, with no manual steps. This guide explains what's happening behind the scenes so you can answer questions from customers, build campaigns off the data it generates, and know which lever to pull when something looks off. It's written for support, marketing, and admin; engineering should be able to read it and confirm it's accurate.
 
-If you read nothing else, read section 1 (the problem) and section 3 (the four contact lists). Those are the parts marketing and support need most often.
+If you read nothing else, read section 1 (the problem), section 3 (how a customer fixes it), and section 4 (the four contact lists). Those are the parts support and marketing need most often.
 
 ---
 
@@ -64,12 +64,12 @@ Here's her week, as a timeline.
     </div>
   </div>
   <div class="timeline-day">
-    <div class="timeline-day-label">Day 8</div>
+    <div class="timeline-day-label">Grace period ends</div>
     <div class="timeline-day-content">
       <div class="timeline-day-branches">
         <div class="timeline-branch recovered">
           <div class="timeline-branch-title">Recovered</div>
-          Stripe Smart Retries finally worked or Sarah updated her card. She gets a "Your payment is back on track" email and the banner disappears.
+          Stripe Smart Retries finally worked, or Sarah updated her card. She gets a "Your payment is back on track" email and the banner disappears.
         </div>
         <div class="timeline-branch failed">
           <div class="timeline-branch-title">Stripe gave up</div>
@@ -80,11 +80,32 @@ Here's her week, as a timeline.
   </div>
 </div>
 
-That's the entire flow. Sarah experiences it as roughly four touchpoints over a week, all explaining the same thing in slightly more direct language each time. From our side, every step is automated, logged, and queryable.
+Two things that timeline simplifies. Sarah can end the whole sequence on any day by updating her card, which charges her overdue balance on the spot (section 3). And the exact moment her access ends is set by the grace period, not a fixed day 8 (see glossary) — usually about a week in, sometimes longer.
+
+That aside, this is the entire flow. Sarah experiences it as roughly four touchpoints over a week, all explaining the same thing in slightly more direct language each time. From our side, every step is automated, logged, and queryable.
 
 ---
 
-## 3. The four marketing lists
+## 3. How a customer fixes it
+
+The fastest way out of a failed payment is for the customer to add or update their card in **Settings -> Payment Methods**. The moment they do, we don't wait for Stripe's next automatic retry. We charge the overdue invoice right then, on the new card.
+
+There are two outcomes, and both tell the customer exactly what happened:
+
+| Outcome | What the customer sees | What happens |
+| --- | --- | --- |
+| Charge succeeds | "Card saved and your overdue charge went through." | The new card becomes their default, the subscription goes back to active, and the past-due banner clears within moments. |
+| Charge fails | "We couldn't charge your new card for the overdue balance. The card was removed, please try a different one." | The card they just entered is removed so it isn't left behind as a broken default, and they're asked to try another. |
+
+A few things worth knowing for support:
+
+- This immediate charge only happens through our own Settings page. If a customer fixes their card somewhere else (their bank's app, a Stripe receipt link), we fall back to Stripe's automatic retry, which can take a day or two.
+- It deliberately does **not** happen at checkout. A customer buying a new course or plan won't have us quietly re-run their old failed charge against the new card.
+- If the customer never comes back to fix it themselves, the daily card check (section 9) and the dunning emails still run in the background.
+
+---
+
+## 4. The four marketing lists
 
 This is the part most useful to marketing day to day.
 
@@ -112,7 +133,7 @@ If the reconciliation has to move more than 10 customers in one morning, a Slack
 
 ---
 
-## 4. Hard fails versus soft fails
+## 5. Hard fails versus soft fails
 
 Every failed charge falls into one of two buckets, and the email we send depends on which one.
 
@@ -131,7 +152,7 @@ About 80 percent of failures are soft and 20 percent are hard. The system fires 
 
 ---
 
-## 5. The 12 emails
+## 6. The 12 emails
 
 There are twelve different emails the system can send. Marketing owns the visual design and copy of all of them inside Brevo. Engineering owns when each one fires.
 
@@ -167,7 +188,7 @@ Each template has a small set of variable placeholders that get filled in at sen
 
 ---
 
-## 6. How Brevo plays into this
+## 7. How Brevo plays into this
 
 We use Brevo for two specific things and one we deliberately don't use.
 
@@ -175,7 +196,7 @@ We use Brevo for two specific things and one we deliberately don't use.
 
 Email templates are stored in the Brevo dashboard. Marketing maintains the visual design, the wording, and any tweaks. Updating an email template doesn't require an engineering deploy or even an engineer in the loop. You go to Brevo, open the template, change what you want, save. The next email sent through that template uses your new version.
 
-Contact lists are stored in Brevo too. The four lists from section 3 live in a folder called "Subscription Management" in the Brevo dashboard. Marketing can browse them, use them as audiences inside Brevo, or sync them out to Meta and Google.
+Contact lists are stored in Brevo too. The four lists from section 4 live in a folder called "Subscription Management" in the Brevo dashboard. Marketing can browse them, use them as audiences inside Brevo, or sync them out to Meta and Google.
 
 Brevo also handles the actual mechanics of sending: deliverability, bounce handling, unsubscribe links, the SMTP plumbing. We never think about any of that.
 
@@ -206,7 +227,7 @@ Now our backend code decides when each email goes out and calls Brevo's email-se
 
 ---
 
-## 7. The "card expires soon" flow
+## 8. The "card expires soon" flow
 
 Most subscription cancellations don't happen because someone deliberately cancels. They happen because the card on file silently expires and the next charge fails. We try to head this off about a week in advance.
 
@@ -228,32 +249,48 @@ flowchart TD
   class Check,Email,Click,Landing neutral;
 ```
 
-The one-click sign-in link is a "magic link" (a temporary URL that signs the customer in). It expires after an hour for security, and if a customer clicks an expired link, they land on the regular sign-in page with their email already filled in and a small banner explaining what happened.
+The one-click sign-in link is a "magic link" (a temporary URL that signs the customer in). It expires after an hour for security, and if a customer clicks an expired link, they land on the regular sign-in page with their email already filled in and a small banner explaining what happened. This particular email carries the link only, no code (the code-plus-link version is for our general sign-in email; see the glossary).
 
 The customer's email address is added to the **Card expiring soon** list at this moment. Marketing can use that list for retargeting ads, but the urgency is genuinely lower than the dunning audience, so the creative should be softer.
 
 ---
 
-## 8. The in-app banner
+## 9. When we fix the card for them
 
-When a customer is in trouble (their last payment failed), they see this on top of every page of their AchieveCE dashboard:
+The "card expires soon" email in section 8 assumes the customer has to act. Often they don't. If a customer has more than one card saved and the one set as default is the one about to expire, a daily check quietly promotes a still-valid card to default before the renewal. No email, no action needed, and the renewal then charges the good card instead of failing.
+
+It runs every morning. For each customer with a saved default card and an active subscription, it asks one question: will the default card be expired by the next charge? If yes, and there's another valid card on file, it swaps. If there's no valid backup, it leaves things alone, and the "card expires soon" email does the nudging instead.
+
+The swap and the email run independently, so they don't suppress each other. In practice, a customer with a good backup card usually gets swapped before the email would ever matter; a customer without one gets the email.
+
+Two related bits of automatic housekeeping:
+
+- **Card networks tell us about replacements.** When Visa or Mastercard issues a customer a new card number to replace an old one, Stripe passes that update through and we apply it automatically. The customer never has to re-enter anything, and we don't email them about it.
+- **Deleting the default promotes another.** If a customer removes the card that happens to be their default and they still have others on file, we immediately promote one of the remaining cards, so they're never left without a default.
+
+---
+
+## 10. The in-app banner
+
+When a customer's last payment has failed, they see this on top of every page of their AchieveCE dashboard:
 
 ```
 +---------------------------------------------------------+
 | (!) We couldn't process your last payment               |
-|     AchieveCE Premium, 4 days left before access ends   |
+|     AchieveCE Premium                                   |
+|     Access ends in   03 Days  11 Hours  52 Min  08 Sec  |
 |                                                         |
-|     [ Update payment method ]   Dismiss                 |
+|     [ Update payment method ]                           |
 +---------------------------------------------------------+
 ```
 
-Clicking "Update payment method" takes them straight to the settings page, on the payment-methods tab. They see their saved cards, with red badges on expired ones and amber badges on cards expiring within 60 days. They can add a new card, optionally mark it as their default in the same flow, and remove old ones.
+The banner shows a live countdown to the moment access ends (the grace period, see glossary) and it is **not dismissible**. We keep it that way on purpose: the worst outcome here is a customer losing access without realizing it, so we don't give them a way to hide the warning. Clicking "Update payment method" takes them to **Settings -> Payment Methods**, where adding a card charges the overdue balance immediately (section 3).
 
-Dismissing the banner hides it for the current browser session only. The next time they come back, the banner is there again until the subscription is healthy. We do this on purpose because banner-blindness is a real problem and the worst outcome here is the customer losing access without realizing it.
+Once access has actually been revoked, that yellow banner is replaced by a separate red one for about 60 days. It points the customer to the certificates they already earned (nothing is deleted when a subscription is paused) and, unlike the past-due banner, it can be dismissed.
 
 ---
 
-## 9. Where customers manage their cards
+## 11. Where customers manage their cards
 
 The canonical place is **Settings -> Payment Methods**. Here's what's on that page:
 
@@ -270,7 +307,7 @@ This is where every email's main button (and the banner's main button) points. T
 
 ---
 
-## 10. Common questions from customers
+## 12. Common questions from customers
 
 ### "I got a 'payment failed' email but I haven't done anything different."
 
@@ -280,7 +317,7 @@ Action: send them to **Settings -> Payment Methods**. If the card looks valid th
 
 ### "I just updated my card but I still see the banner."
 
-This usually means Stripe hasn't tried the new card yet. Stripe retries on its own schedule (usually within a day or two). The banner will clear automatically once the next retry succeeds. Tell the customer to give it 24 to 48 hours.
+If they updated it on our **Settings -> Payment Methods** page, the overdue charge is attempted right away and the banner should clear within a moment. Tell them to refresh. If it didn't clear, one of two things happened: the charge failed (we would have removed that card and shown a message, so they should try a different card), or they updated the card somewhere other than our app. In that second case Stripe's automatic retry can take a day or two. Either way, confirm in Settings that a valid, unexpired card is set as default.
 
 ### "My access was cut off but I never got any emails."
 
@@ -293,11 +330,13 @@ Two things to check:
 
 Yes. They sign in, go to the courses they were interested in, and start a new subscription. Their course progress and any certificates they already earned are safe; nothing was deleted when the subscription was paused.
 
+If their old subscription was still stuck in a failed state when they buy again, the system cleans it up automatically: it cancels the stuck one so they're never billed for both, and counts them as a recovered customer.
+
 Note for marketing: this customer is in the **Access revoked** list. If they restart, they stay in that list (it's a historical record), but they may also re-enter **In dunning** later if they have payment trouble again. The lists can overlap.
 
 ---
 
-## 11. What marketing can do with this
+## 13. What marketing can do with this
 
 A few starting points, not a playbook.
 
@@ -307,19 +346,21 @@ A few starting points, not a playbook.
 
 ---
 
-## 12. Glossary
+## 14. Glossary
 
 | Term | What it means here |
 | --- | --- |
 | **Dunning** | The process of asking a customer to settle an overdue payment. The four emails in the dunning sequence are our dunning emails. |
 | **Past due** | A subscription whose last renewal charge failed but who still has access while we try to recover the payment. The grace window. |
-| **Grace period** | The 7-day window between the first failed charge and the cancellation of the subscription. Usually matches how long Stripe will keep retrying. |
+| **Grace period** | The window a customer keeps access after a failed charge while we try to recover the payment. It's set the first time the charge fails, to just after Stripe's next scheduled retry, or 21 days if Stripe doesn't give us a retry date, and then held fixed so the deadline doesn't move. The in-app banner counts down to it. |
 | **Hard decline** | A card failure that won't recover with retries; the card needs to be replaced. |
 | **Soft decline** | A card failure that might recover with retries; the card itself is fine. |
 | **Smart Retries** | Stripe's automatic retry feature. It tries failed charges again at intervals it thinks are more likely to succeed. We don't manage retry timing ourselves. |
-| **Network Updates** | Stripe's back-channel where card networks (Visa, Mastercard) automatically tell Stripe when a customer gets a new card. We benefit from this silently; about 260 charges in any 90-day window are saved this way without anyone realizing. |
+| **Card auto-swap** | A daily check that promotes a valid saved card to default when the current default is about to expire, so the renewal doesn't fail. Silent, no email. See section 9. |
+| **Network Updates** | Stripe's back-channel where card networks (Visa, Mastercard) automatically tell Stripe when a customer gets a new card. We apply these silently; about 260 charges in any 90-day window are saved this way without anyone realizing. |
+| **Magic link** | A one-time sign-in URL we email to customers. They click it, land signed in, no password needed. Expires after an hour. The "card expires soon" email uses a link only; our general sign-in email includes both the link and a 6-digit code (see OTP). |
+| **OTP** | A 6-digit one-time code included in our general sign-in email as an alternative to the magic link. The customer types it in instead of clicking. Expires after an hour, the same as the link. |
 | **Brevo** | The email platform we use. Stores templates, sends emails, hosts our contact lists. |
-| **Magic link** | A one-time sign-in URL we email to customers. They click it, land signed in, no password needed. Expires after an hour. |
 
 ---
 
