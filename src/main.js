@@ -81,6 +81,21 @@ function showShell(session) {
   start({ groups });
 }
 
+// Hard upper bound on getSession(). Without this, a wedged Amplify state
+// (corrupt tokens in localStorage, network refresh that never resolves)
+// leaves fetchAuthSession() pending forever and the user stares at the
+// spinner with no way out except a manual reload.
+const GET_SESSION_TIMEOUT_MS = 8000;
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 async function init() {
   const previewGroups = readPreviewGroups();
   if (previewGroups) {
@@ -92,18 +107,40 @@ async function init() {
   }
 
   const params = new URLSearchParams(window.location.search);
-  const isCallback = params.has("code") || window.location.pathname === "/callback";
-  if (isCallback) {
+  const hasCode = params.has("code");
+  const hasError = params.has("error");
+  const onCallbackPath = window.location.pathname === "/callback";
+
+  if (hasError) {
+    console.warn(
+      "[auth] Cognito returned an error on callback:",
+      params.get("error"),
+      params.get("error_description")
+    );
+    window.history.replaceState({}, document.title, "/");
+    return showSignIn();
+  }
+
+  if (hasCode) {
     const outcome = await auth.awaitOAuthCompletion();
     // Amplify v6 clears ?code= itself on success; only force-clean the
     // URL if it didn't (failure / safety timeout).
     if (outcome !== "success" && window.location.search) {
       window.history.replaceState({}, document.title, "/");
     }
+  } else if (onCallbackPath) {
+    // /callback with no code and no error — stale bookmark, browser-back
+    // from the Hosted UI, or a redirect where the code never made it
+    // through. Nothing to wait for; normalize the URL and fall through.
+    window.history.replaceState({}, document.title, "/");
   }
 
   try {
-    const session = await auth.getSession();
+    const session = await withTimeout(
+      auth.getSession(),
+      GET_SESSION_TIMEOUT_MS,
+      "getSession"
+    );
     if (!session) return showSignIn();
     showShell(session);
   } catch (err) {
