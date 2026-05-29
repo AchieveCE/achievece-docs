@@ -38,9 +38,47 @@ Picture a customer named Sarah. Her debit card auto-charges on the 15th of each 
 
 Here's her week, as a timeline.
 
-<figure class="diagram">
-  <img src="/guides/payment-recovery/customer-journey.svg" alt="Sarah's week, day-by-day timeline from first failure to either recovery or cancellation" />
-</figure>
+<div class="timeline">
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 0<br/>morning</div>
+    <div class="timeline-day-content">
+      <p>Charge fails at Stripe. Within about a minute, Sarah gets the "We could not process your payment" email, a banner appears on her AchieveCE dashboard, marketing's "In dunning" Brevo list adds her, and customer support gets pinged in Slack.</p>
+    </div>
+  </div>
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 2 to 3</div>
+    <div class="timeline-day-content">
+      <p>Stripe quietly retries the card. It fails again. Sarah gets the second email, "Quick reminder, your payment needs attention."</p>
+    </div>
+  </div>
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 4 to 5</div>
+    <div class="timeline-day-content">
+      <p>Stripe retries again. Fails again. Sarah gets "Your access is at risk."</p>
+    </div>
+  </div>
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 6 to 7</div>
+    <div class="timeline-day-content">
+      <p>Stripe retries one last time. Fails again. Sarah gets "Final notice, access pauses tomorrow."</p>
+    </div>
+  </div>
+  <div class="timeline-day">
+    <div class="timeline-day-label">Day 8</div>
+    <div class="timeline-day-content">
+      <div class="timeline-day-branches">
+        <div class="timeline-branch recovered">
+          <div class="timeline-branch-title">Recovered</div>
+          Stripe Smart Retries finally worked or Sarah updated her card. She gets a "Your payment is back on track" email and the banner disappears.
+        </div>
+        <div class="timeline-branch failed">
+          <div class="timeline-branch-title">Stripe gave up</div>
+          Her subscription is canceled, she gets the "Your subscription has been paused" email.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 That's the entire flow. Sarah experiences it as roughly four touchpoints over a week, all explaining the same thing in slightly more direct language each time. From our side, every step is automated, logged, and queryable.
 
@@ -50,9 +88,24 @@ That's the entire flow. Sarah experiences it as roughly four touchpoints over a 
 
 Same story as above, but as one diagram for anyone who reads visually.
 
-<figure class="diagram">
-  <img src="/guides/payment-recovery/recovery-journey.svg" alt="Decision tree from a customer's renewal date through to either recovery or canceled subscription" />
-</figure>
+```mermaid
+flowchart TD
+  Start([Customer renewal date]) --> Charge{Stripe charges<br/>the card}
+  Charge -- Success --> Done([Renewal done. Nothing else])
+  Charge -- Failure --> Detect[First failure detected<br/>Classify hard or soft<br/>Mark subscription past due]
+  Detect --> Notify[Send email<br/>+ show banner<br/>+ add to In dunning list]
+  Notify --> Retry[Stripe retries the card<br/>over the next 7 days]
+  Retry --> Outcome{Outcome}
+  Outcome -- Recovers --> Win[Payment recovered email<br/>Banner disappears<br/>Add to Recovered list<br/>Remove from In dunning]
+  Outcome -- Never recovers --> Cancel[Cancel subscription<br/>Subscription paused email<br/>Add to Access revoked list<br/>Remove from In dunning]
+
+  classDef happy fill:#dcfce7,stroke:#16a34a,color:#000000;
+  classDef sad fill:#fee2e2,stroke:#dc2626,color:#000000;
+  classDef neutral fill:#f1f5f9,stroke:#64748b,color:#000000;
+  class Done,Win happy;
+  class Cancel sad;
+  class Detect,Notify,Retry neutral;
+```
 
 ---
 
@@ -194,8 +247,8 @@ flowchart TD
   Click --> Landing[Lands on /settings,<br/>already signed in,<br/>on the payment-methods tab]
   Landing --> Update[Customer adds the new card,<br/>marks it as default, done]
 
-  classDef happy fill:#dcfce7,stroke:#16a34a,color:#14532d;
-  classDef neutral fill:#f1f5f9,stroke:#64748b,color:#1e293b;
+  classDef happy fill:#dcfce7,stroke:#16a34a,color:#000000;
+  classDef neutral fill:#f1f5f9,stroke:#64748b,color:#000000;
   class Skip,Update happy;
   class Check,Email,Click,Landing neutral;
 ```
@@ -269,36 +322,17 @@ Note for marketing: this customer is in the **Access revoked** list. If they res
 
 ---
 
-## 12. What marketing should do with this
+## 12. What marketing can do with this
 
-Three concrete campaigns to consider, ranked by likely impact.
+A few starting points, not a playbook.
 
-**Win-back ads targeting the Access revoked list.** These customers have already proven they want what we sell (they subscribed once). Sync the list to Meta and Google as a custom audience. Show them an ad with a discount or a "we miss you" angle. Exclude customers who currently have an active subscription.
+**Win-back the Access revoked list.** Customers who subscribed once and lost access. Useful as a custom audience for win-back campaigns.
 
-**Lookalike acquisition seeded on the Recovered list.** These customers have proven they're resilient payers; they had a payment problem and stuck with us to fix it. That's a great seed for prospecting campaigns. Build a Meta or Google lookalike from this list.
-
-**Retargeting the In dunning list with a "fix your card" creative.** Time-sensitive (the audience cycles fast, most members leave within 7 days). Run a short ad campaign that points back to the AchieveCE settings page. Soft tone, no doom messaging; they're already getting that from us via email.
-
-The "Card expiring soon" list is a lower-priority retargeting cohort. The renewal hasn't failed yet, so the urgency is gentler. A small ad budget here is probably enough.
+**Lookalike audience seeded on the Recovered list.** These customers stuck with us through a payment problem. Combined with other CRM data, they can seed a strong lookalike for prospecting.
 
 ---
 
-## 13. What engineering and product should know
-
-Most of this is in the technical guide at `.claude/docs/payment-recovery-system-guide.md` in the achievece-web repo. The short version:
-
-- Every state transition is recorded in an append-only audit table called `payment_recovery_events`
-- The system is idempotent on Stripe webhook replays
-- A daily cron at 06:00 UTC enforces grace periods and reconciles the four contact lists
-- All emails go out via direct API call to Brevo, not via Brevo automations
-- The hard-versus-soft classifier is a pure function with unit tests
-- Six SQL queries are ready to drop into Metabase for the standard recovery-rate dashboard
-
-Open a ticket and pair with engineering if you need numbers that aren't already in Metabase.
-
----
-
-## 14. Glossary
+## 13. Glossary
 
 | Term | What it means here |
 | --- | --- |

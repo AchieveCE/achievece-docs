@@ -136,20 +136,22 @@
       @media (max-width: 640px) {
         .guide-article .comparison { grid-template-columns: 1fr; }
       }
-      .guide-article figure.diagram { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 24px 0; padding: 24px; background: #ffffff; border: 1px solid var(--scalar-color-background-3); border-radius: 8px; overflow-x: auto; }
+      .guide-article figure.diagram { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 32px 0; padding: 36px 32px; background: #eef2f7; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 14px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); overflow-x: auto; }
       .guide-article figure.diagram img,
       .guide-article figure.diagram svg { max-width: 100%; height: auto; display: block; }
       .guide-article figure.diagram figcaption { color: #475569; font-size: 13px; font-style: italic; text-align: center; line-height: 1.5; margin: 0; }
-      .guide-article .mermaid { display: flex; justify-content: center; padding: 24px; margin: 20px 0; background: #ffffff; border: 1px solid var(--scalar-color-background-3); border-radius: 8px; overflow-x: auto; color: #1e293b; }
+      .guide-article .mermaid { display: flex; justify-content: center; padding: 36px 32px; margin: 32px 0; background: #eef2f7; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 14px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); overflow-x: auto; color: #1e293b; }
       .guide-article .mermaid svg { max-width: 100%; height: auto; }
-      .guide-article .mermaid svg text,
       .guide-article .mermaid svg .nodeLabel,
-      .guide-article .mermaid svg .edgeLabel,
-      .guide-article .mermaid svg .edgeLabel p,
-      .guide-article .mermaid svg .messageText,
-      .guide-article .mermaid svg foreignObject div { color: #1e293b !important; fill: #1e293b !important; }
-      .guide-article .mermaid svg .edgeLabel { background-color: #ffffff !important; }
-      .guide-article .mermaid svg .edgeLabel rect { fill: #ffffff !important; }
+      .guide-article .mermaid svg .nodeLabel span,
+      .guide-article .mermaid svg foreignObject p,
+      .guide-article .mermaid svg foreignObject span,
+      .guide-article .mermaid svg text { color: #000000 !important; fill: #000000 !important; font-weight: 500 !important; }
+      .guide-article .mermaid svg .edgeLabel foreignObject,
+      .guide-article .mermaid svg .edgeLabel foreignObject div,
+      .guide-article .mermaid svg .edgeLabel span { background-color: transparent !important; color: #000000 !important; }
+      .guide-article .mermaid svg .edgeLabel rect { fill: #eef2f7 !important; }
+      .guide-article .mermaid svg .edgeLabel { background-color: #eef2f7 !important; }
       .guide-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--scalar-color-background-3); color: var(--scalar-color-3); font-size: 12px; }
       .guide-footer a { color: var(--scalar-color-2); }
     </style>

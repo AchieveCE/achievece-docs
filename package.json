@@ -13,7 +13,6 @@
     "@scalar/api-reference": "^1.25.0"
   },
   "devDependencies": {
-    "roughjs": "^4.6.6",
     "vite": "^5.4.0"
   }
 }
