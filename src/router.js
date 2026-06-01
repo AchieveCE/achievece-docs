@@ -4,8 +4,10 @@ import { mountGuides } from "./guides/ui.js";
 let userGroups = [];
 let apiMounted = false;
 
+const API_GROUPS = ["admin", "consumer", "engineering"];
+
 function canSeeApi(groups) {
-  return groups.includes("admin") || groups.includes("consumer");
+  return groups.some((g) => API_GROUPS.includes(g));
 }
 
 function parse(pathname, groups) {
