@@ -1,9 +1,13 @@
 openapi: 3.1.0
 info:
   title: AchieveCE Public API
-  version: 1.2.0
+  version: 1.3.0
   description: |
     API key authenticated endpoints for courses, packages, faculty, continuing education requirements, and SEO override management.
+
+    ## What's new in v5.3.0
+
+    - Content Override API: submit, review, approve, and publish overrides for code-registered frontend slots (`/api/content/*`). Approved overrides take precedence over Contentful, database, and hardcoded defaults at render time. New scopes: `content:read`, `content:write`, `content:admin`.
 
     ## What's new in v4.13.0
 
@@ -43,6 +47,9 @@ info:
     | `seo:read` | Read SEO inventory, metadata, JSON-LD, previews, override list |
     | `seo:write` | Create/update/delete pending overrides |
     | `seo:admin` | Approve, reject, pending queue, deploy |
+    | `content:read` | Read slot inventory, previews, and override list |
+    | `content:write` | Create, update, or delete pending content overrides |
+    | `content:admin` | Approve, reject, pending queue, deploy (internal keys only) |
 
     ## Success and error shapes
 
@@ -88,6 +95,12 @@ tags:
     description: Create or update pending overrides (`seo:write`)
   - name: SEO — Admin
     description: Approve, reject, deploy (`seo:admin`)
+  - name: Content - Read
+    description: Read slot inventory, previews, and override list (`content:read`)
+  - name: Content - Write
+    description: Create, update, or delete pending content overrides (`content:write`)
+  - name: Content - Admin
+    description: Approve, reject, pending queue, deploy (`content:admin`, internal keys only)
 
 paths:
   # ── Courses ──────────────────────────────────────────────
@@ -932,6 +945,338 @@ paths:
         "503":
           description: Deploy hook not configured
 
+  /api/content/inventory:
+    get:
+      operationId: listContentInventory
+      summary: List registered content slots with override counts
+      tags: [Content - Read]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Registered slots and their pending/approved counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/content/preview:
+    get:
+      operationId: previewContent
+      summary: Preview resolved content for a page (live, includes pending)
+      description: Resolves each slot for the page with provenance (`page`/`route`/`global`/`default`/`pending`). Reads live DB state, not the cached approved set.
+      tags: [Content - Read]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: pagePath
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: includePending
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Per-slot resolved values with provenance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/content/overrides:
+    get:
+      operationId: listContentOverrides
+      summary: List content overrides
+      tags: [Content - Read]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum: [page, route, global]
+        - name: slotKey
+          in: query
+          schema:
+            type: string
+        - name: pagePath
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated content overrides
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createContentOverride
+      summary: Create a pending content override
+      description: |
+        Creates a PENDING override for a registered slot after slot-aware validation.
+        A replayed `idempotencyKey` returns the original 201. A second pending override for
+        the same slot returns 409 with the existing pending id in `error.details`.
+      tags: [Content - Write]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContentOverrideBody"
+      responses:
+        "201":
+          description: Created pending override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: A pending override already exists for the slot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /api/content/overrides/{id}:
+    put:
+      operationId: updateContentOverride
+      summary: Update a pending content override's value
+      tags: [Content - Write]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value: {}
+      responses:
+        "200":
+          description: Updated override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Override not found
+        "409":
+          description: Only PENDING overrides can be updated
+    delete:
+      operationId: deleteContentOverride
+      summary: Delete a pending content override
+      tags: [Content - Write]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Override not found
+        "409":
+          description: Only PENDING overrides can be deleted
+
+  /api/content/pending:
+    get:
+      operationId: listContentPending
+      summary: List the pending content override queue (admin)
+      tags: [Content - Admin]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Pending overrides with diff descriptors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/content/approve/{id}:
+    post:
+      operationId: approveContentOverride
+      summary: Approve a content override
+      description: Approves a PENDING override and revalidates the `content-overrides` cache tag so it goes live without a rebuild.
+      tags: [Content - Admin]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Approved override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Override not found
+        "409":
+          description: Only PENDING overrides can be approved
+
+  /api/content/approve/batch:
+    post:
+      operationId: approveContentBatch
+      summary: Approve multiple content overrides (transactional)
+      tags: [Content - Admin]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  maxItems: 100
+      responses:
+        "200":
+          description: Approved overrides
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: One or more ids are not pending; the batch rolled back
+
+  /api/content/reject/{id}:
+    post:
+      operationId: rejectContentOverride
+      summary: Reject a content override (note required)
+      tags: [Content - Admin]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Rejected override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Override not found
+        "409":
+          description: Only PENDING overrides can be rejected
+
+  /api/content/deploy:
+    post:
+      operationId: deployContent
+      summary: Trigger a full site deploy (Vercel hook fallback)
+      description: Full-rebuild fallback for publishing approved overrides. Requires `VERCEL_DEPLOY_HOOK_URL`; returns 503 if not configured.
+      tags: [Content - Admin]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Deploy triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDataResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          description: Deploy hook failed
+        "503":
+          description: Deploy hook not configured
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -1613,6 +1958,31 @@ components:
         payload:
           type: object
           additionalProperties: true
+
+    CreateContentOverrideBody:
+      type: object
+      required: [scope, slotKey, value]
+      properties:
+        scope:
+          type: string
+          enum: [PAGE, ROUTE, GLOBAL]
+        slotKey:
+          type: string
+          description: A registered slot key (e.g. `pricing.hero.headline`).
+        value:
+          description: Slot-shaped value; validated against the slot's schema.
+        pagePath:
+          type: string
+          description: Required for PAGE scope; forbidden otherwise.
+        routePattern:
+          type: string
+          description: Required for ROUTE scope (e.g. `/courses/*`); forbidden otherwise.
+        idempotencyKey:
+          type: string
+          description: Optional per-key dedup; replaying it returns the original 201.
+        syncToContentful:
+          type: boolean
+          description: Rejected in v1; Contentful sync is not yet available.
 
   responses:
     Unauthorized:
