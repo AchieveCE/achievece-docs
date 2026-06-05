@@ -1,6 +1,6 @@
 import jsyaml from "https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/+esm";
 
-const ADMIN_TAG_PREFIXES = ["SEO — Admin"];
+const ADMIN_TAG_PREFIXES = ["SEO — Admin", "Content - Admin"];
 const NEW_BADGE_STORAGE_KEY = "achievece-docs-viewed-new-v4.13.0";
 
 let scalarMounted = false;

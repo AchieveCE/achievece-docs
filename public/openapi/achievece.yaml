@@ -949,6 +949,7 @@ paths:
     get:
       operationId: listContentInventory
       summary: List registered content slots with override counts
+      description: Every slot in the registry with its value kind, the scopes it accepts, and how many overrides currently target it (pending vs. approved). Use it to discover valid `slotKey` values before creating an override.
       tags: [Content - Read]
       security:
         - ApiKeyAuth: []
@@ -958,15 +959,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/ContentInventoryResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
   /api/content/preview:
     get:
       operationId: previewContent
-      summary: Preview resolved content for a page (live, includes pending)
-      description: Resolves each slot for the page with provenance (`page`/`route`/`global`/`default`/`pending`). Reads live DB state, not the cached approved set.
+      summary: Preview resolved content for a page
+      description: |
+        Resolves each slot for the page exactly as the site would, with provenance (`page`/`route`/`global`/`default`/`pending`). Precedence: an exact PAGE override wins, then the most specific matching ROUTE (longest pattern, newest on a tie), then GLOBAL; with nothing applicable the slot resolves to `null` with source `default`. Reads live DB state, not the cached approved set.
       tags: [Content - Read]
       security:
         - ApiKeyAuth: []
@@ -978,6 +980,7 @@ paths:
             type: string
         - name: includePending
           in: query
+          description: Set to `true` to let pending overrides outrank approved values (default `false`).
           schema:
             type: string
             enum: ["true", "false"]
@@ -987,7 +990,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/ContentPreviewResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
         "401":
@@ -997,6 +1000,7 @@ paths:
     get:
       operationId: listContentOverrides
       summary: List content overrides
+      description: Paginated list of overrides across every status, newest first. Filter by `status`, `scope`, `slotKey`, or an exact `pagePath`.
       tags: [Content - Read]
       security:
         - ApiKeyAuth: []
@@ -1027,7 +1031,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PaginatedDataResponse"
+                $ref: "#/components/schemas/PaginatedContentOverrideResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
         "401":
@@ -1054,7 +1058,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/SingleContentOverrideResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
         "401":
@@ -1065,11 +1069,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: CONFLICT
+                  message: A pending override already exists for slot "pricing.hero.headline"
+                  details:
+                    - existingPendingId: a3f1c0de-1b2c-4d5e-8f90-1234567890ab
 
   /api/content/overrides/{id}:
     put:
       operationId: updateContentOverride
       summary: Update a pending content override's value
+      description: Replaces a pending override's `value`, re-validating it against the slot. Only PENDING overrides can be updated — approved or rejected records are immutable (409).
       tags: [Content - Write]
       security:
         - ApiKeyAuth: []
@@ -1095,7 +1106,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/SingleContentOverrideResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
         "401":
@@ -1107,6 +1118,7 @@ paths:
     delete:
       operationId: deleteContentOverride
       summary: Delete a pending content override
+      description: Discards a pending override. Only PENDING overrides can be deleted; reviewed records are kept for history (409). Returns the deleted id.
       tags: [Content - Write]
       security:
         - ApiKeyAuth: []
@@ -1123,7 +1135,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/DeleteContentOverrideResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1135,6 +1147,7 @@ paths:
     get:
       operationId: listContentPending
       summary: List the pending content override queue (admin)
+      description: The full review queue — every PENDING override, newest first, each with a short `diff` summary and the submitting key. Entries use the stored snake_case field names.
       tags: [Content - Admin]
       security:
         - ApiKeyAuth: []
@@ -1144,7 +1157,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/ContentPendingResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -1169,7 +1182,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/SingleContentOverrideResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1181,6 +1194,7 @@ paths:
     post:
       operationId: approveContentBatch
       summary: Approve multiple content overrides (transactional)
+      description: Approves up to 100 pending overrides in one transaction. If any id is missing or not pending, the whole batch rolls back and nothing changes (409).
       tags: [Content - Admin]
       security:
         - ApiKeyAuth: []
@@ -1205,7 +1219,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/ContentOverridesArrayResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
         "401":
@@ -1217,6 +1231,7 @@ paths:
     post:
       operationId: rejectContentOverride
       summary: Reject a content override (note required)
+      description: Marks a pending override REJECTED with a required `note` (1–1000 chars) explaining why; the note is delivered to the submitter. Only PENDING overrides can be rejected.
       tags: [Content - Admin]
       security:
         - ApiKeyAuth: []
@@ -1245,7 +1260,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/SingleContentOverrideResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
         "401":
@@ -1269,7 +1284,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SingleDataResponse"
+                $ref: "#/components/schemas/ContentDeployResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "502":
@@ -1983,6 +1998,413 @@ components:
         syncToContentful:
           type: boolean
           description: Rejected in v1; Contentful sync is not yet available.
+      example:
+        scope: PAGE
+        slotKey: pricing.hero.headline
+        pagePath: /pricing
+        value: Save 20% when you renew early
+        idempotencyKey: pricing-headline-2026-06-05
+
+    ContentOverride:
+      type: object
+      description: A content override record, in the camelCase response shape.
+      required: [id, scope, slotKey, value, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        scope:
+          type: string
+          enum: [PAGE, ROUTE, GLOBAL]
+        pagePath:
+          type: string
+          nullable: true
+          description: Set when scope is PAGE; null otherwise.
+        routePattern:
+          type: string
+          nullable: true
+          description: Set when scope is ROUTE; null otherwise.
+        slotKey:
+          type: string
+        value:
+          description: "Slot value. Shape follows the slot's value kind: text → string; richText / structuredBlock / componentBlock(List) → object or array."
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+        syncToContentful:
+          type: boolean
+        contentfulSyncStatus:
+          type: string
+          nullable: true
+          enum: [PENDING, SYNCED, FAILED]
+        contentfulSyncError:
+          type: string
+          nullable: true
+        contentfulSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+        idempotencyKey:
+          type: string
+          nullable: true
+        reviewedByUserId:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reviewNote:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        submittedBy:
+          type: object
+          description: The submitting key, by name and prefix only. Present when the key relation is included.
+          properties:
+            name:
+              type: string
+            keyPrefix:
+              type: string
+
+    ContentInventoryEntry:
+      type: object
+      properties:
+        slotKey:
+          type: string
+        valueKind:
+          type: string
+          enum: [text, richText, structuredBlock, componentBlock, componentBlockList]
+        allowedScopes:
+          type: array
+          items:
+            type: string
+            enum: [PAGE, ROUTE, GLOBAL]
+        pendingOverrides:
+          type: integer
+        approvedOverrides:
+          type: integer
+
+    ContentPreviewSlot:
+      type: object
+      properties:
+        slotKey:
+          type: string
+        value:
+          nullable: true
+          description: Resolved value, or null when the slot falls back to its default.
+        source:
+          type: string
+          enum: [page, route, global, default, pending]
+        overrideId:
+          type: string
+          format: uuid
+          description: Id of the override that supplied the value; absent for defaults.
+
+    ContentPendingEntry:
+      type: object
+      description: Review-queue entry. Uses the stored snake_case field names, not the camelCase response shape.
+      properties:
+        id:
+          type: string
+          format: uuid
+        scope:
+          type: string
+          enum: [PAGE, ROUTE, GLOBAL]
+        page_path:
+          type: string
+          nullable: true
+        route_pattern:
+          type: string
+          nullable: true
+        slot_key:
+          type: string
+        value:
+          description: Slot value; shape follows the slot's value kind.
+        created_at:
+          type: string
+          format: date-time
+        api_key:
+          type: object
+          properties:
+            name:
+              type: string
+            key_prefix:
+              type: string
+        diff:
+          type: object
+          properties:
+            action:
+              type: string
+              enum: [ADD]
+            description:
+              type: string
+
+    SingleContentOverrideResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/ContentOverride"
+      example:
+        data:
+          id: a3f1c0de-1b2c-4d5e-8f90-1234567890ab
+          scope: PAGE
+          pagePath: /pricing
+          routePattern: null
+          slotKey: pricing.hero.headline
+          value: Save 20% when you renew early
+          status: PENDING
+          syncToContentful: false
+          contentfulSyncStatus: null
+          contentfulSyncError: null
+          contentfulSyncedAt: null
+          idempotencyKey: pricing-headline-2026-06-05
+          reviewedByUserId: null
+          reviewedAt: null
+          reviewNote: null
+          createdAt: "2026-06-05T14:22:10.000Z"
+          updatedAt: "2026-06-05T14:22:10.000Z"
+          submittedBy:
+            name: Marketing site key
+            keyPrefix: ace_live_3f9
+
+    ContentOverridesArrayResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentOverride"
+      example:
+        data:
+          - id: a3f1c0de-1b2c-4d5e-8f90-1234567890ab
+            scope: PAGE
+            pagePath: /pricing
+            routePattern: null
+            slotKey: pricing.hero.headline
+            value: Save 20% when you renew early
+            status: APPROVED
+            syncToContentful: false
+            contentfulSyncStatus: null
+            contentfulSyncError: null
+            contentfulSyncedAt: null
+            idempotencyKey: null
+            reviewedByUserId: 9c8b7a65-4321-4def-8abc-001122334455
+            reviewedAt: "2026-06-05T15:00:00.000Z"
+            reviewNote: null
+            createdAt: "2026-06-05T14:22:10.000Z"
+            updatedAt: "2026-06-05T15:00:00.000Z"
+
+    PaginatedContentOverrideResponse:
+      type: object
+      required: [data, meta, links]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentOverride"
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            perPage:
+              type: integer
+            totalPages:
+              type: integer
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+            next:
+              type: string
+              nullable: true
+            prev:
+              type: string
+              nullable: true
+            first:
+              type: string
+            last:
+              type: string
+      example:
+        data:
+          - id: a3f1c0de-1b2c-4d5e-8f90-1234567890ab
+            scope: PAGE
+            pagePath: /pricing
+            routePattern: null
+            slotKey: pricing.hero.headline
+            value: Save 20% when you renew early
+            status: APPROVED
+            syncToContentful: false
+            contentfulSyncStatus: null
+            contentfulSyncError: null
+            contentfulSyncedAt: null
+            idempotencyKey: null
+            reviewedByUserId: 9c8b7a65-4321-4def-8abc-001122334455
+            reviewedAt: "2026-06-05T15:00:00.000Z"
+            reviewNote: null
+            createdAt: "2026-06-05T14:22:10.000Z"
+            updatedAt: "2026-06-05T15:00:00.000Z"
+            submittedBy:
+              name: Marketing site key
+              keyPrefix: ace_live_3f9
+        meta:
+          total: 1
+          page: 1
+          perPage: 20
+          totalPages: 1
+        links:
+          self: https://achievece.com/api/content/overrides?page=1&perPage=20
+          next: null
+          prev: null
+          first: https://achievece.com/api/content/overrides?page=1&perPage=20
+          last: https://achievece.com/api/content/overrides?page=1&perPage=20
+
+    ContentInventoryResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentInventoryEntry"
+      example:
+        data:
+          - slotKey: pricing.hero.headline
+            valueKind: text
+            allowedScopes: [PAGE]
+            pendingOverrides: 1
+            approvedOverrides: 0
+          - slotKey: pricing.faqs
+            valueKind: structuredBlock
+            allowedScopes: [PAGE]
+            pendingOverrides: 0
+            approvedOverrides: 1
+          - slotKey: pricing.value_section
+            valueKind: componentBlock
+            allowedScopes: [PAGE]
+            pendingOverrides: 0
+            approvedOverrides: 0
+          - slotKey: course.hero.description
+            valueKind: richText
+            allowedScopes: [PAGE, ROUTE]
+            pendingOverrides: 0
+            approvedOverrides: 2
+          - slotKey: findce.hero.description
+            valueKind: text
+            allowedScopes: [PAGE]
+            pendingOverrides: 0
+            approvedOverrides: 0
+
+    ContentPreviewResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [pagePath, includePending, slots]
+          properties:
+            pagePath:
+              type: string
+            includePending:
+              type: boolean
+            slots:
+              type: array
+              items:
+                $ref: "#/components/schemas/ContentPreviewSlot"
+      example:
+        data:
+          pagePath: /pricing
+          includePending: true
+          slots:
+            - slotKey: pricing.hero.headline
+              value: Save 20% when you renew early
+              source: pending
+              overrideId: a3f1c0de-1b2c-4d5e-8f90-1234567890ab
+            - slotKey: pricing.faqs
+              value: null
+              source: default
+            - slotKey: pricing.value_section
+              value: null
+              source: default
+            - slotKey: course.hero.description
+              value: null
+              source: default
+            - slotKey: findce.hero.description
+              value: null
+              source: default
+
+    ContentPendingResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentPendingEntry"
+      example:
+        data:
+          - id: a3f1c0de-1b2c-4d5e-8f90-1234567890ab
+            scope: PAGE
+            page_path: /pricing
+            route_pattern: null
+            slot_key: pricing.hero.headline
+            value: Save 20% when you renew early
+            created_at: "2026-06-05T14:22:10.000Z"
+            api_key:
+              name: Marketing site key
+              key_prefix: ace_live_3f9
+            diff:
+              action: ADD
+              description: "New override for slot `pricing.hero.headline` (/pricing)"
+
+    DeleteContentOverrideResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [id, deleted]
+          properties:
+            id:
+              type: string
+              format: uuid
+            deleted:
+              type: boolean
+      example:
+        data:
+          id: a3f1c0de-1b2c-4d5e-8f90-1234567890ab
+          deleted: true
+
+    ContentDeployResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [triggered, approvedOverrides, message]
+          properties:
+            triggered:
+              type: boolean
+            approvedOverrides:
+              type: integer
+            message:
+              type: string
+      example:
+        data:
+          triggered: true
+          approvedOverrides: 3
+          message: "Deployment triggered. 3 approved content override(s) will be included in the next build."
 
   responses:
     Unauthorized:
