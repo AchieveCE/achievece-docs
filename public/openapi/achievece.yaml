@@ -559,6 +559,10 @@ paths:
       description: |
         Create a pending metadata override for a URL.
 
+        Slack submission confirmations are batched: everything you submit within a few
+        minutes arrives as one summary DM (usually within about 7 minutes), not one DM
+        per request.
+
         `payload.title` supports two modes:
         - string: uses the app's shared title template for that URL
         - `{ absolute: "Final Title" }`: sets a final URL-specific title and bypasses the shared template
@@ -614,6 +618,10 @@ paths:
       x-new: true
       description: |
         Create a pending JSON-LD override for a URL.
+
+        Slack submission confirmations are batched: everything you submit within a few
+        minutes arrives as one summary DM (usually within about 7 minutes), not one DM
+        per request.
 
         ### Site-wide `@graph` schemas
 
@@ -710,6 +718,10 @@ paths:
       x-new: true
       description: |
         Create a pending site-wide JSON-LD override. Stored with `url_pattern: "*"`; once approved, the payload applies on every page.
+
+        Slack submission confirmations are batched: everything you submit within a few
+        minutes arrives as one summary DM (usually within about 7 minutes), not one DM
+        per request.
 
         ### `@graph` schemas now merge instead of duplicate
 
@@ -1043,6 +1055,10 @@ paths:
         Creates a PENDING override for a registered slot after slot-aware validation.
         A replayed `idempotencyKey` returns the original 201. A second pending override for
         the same slot returns 409 with the existing pending id in `error.details`.
+
+        Slack submission confirmations are batched: everything you submit within a few
+        minutes arrives as one summary DM (usually within about 7 minutes), not one DM
+        per request.
       tags: [Content - Write]
       security:
         - ApiKeyAuth: []
